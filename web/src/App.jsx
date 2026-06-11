@@ -12,6 +12,8 @@ import {
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import lottie from 'lottie-web';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import treeAnim from './tree-lottie.json';
 import SessionNode from './nodes.jsx';
 import { layout } from './layout.js';
@@ -20,6 +22,18 @@ import { getForest, getConversation, rename, delSession, exportUrl, stream } fro
 gsap.registerPlugin(useGSAP);
 
 const nodeTypes = { session: SessionNode };
+
+// 1 bong bóng tin nhắn, nội dung render markdown
+function Msg({ m, inherited }) {
+  return (
+    <div className={'msg ' + m.role + (inherited ? ' inherited' : '')}>
+      <div className="msg-role">{m.role === 'user' ? '🧑 You' : '🤖 Claude'}</div>
+      <div className="msg-text">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+      </div>
+    </div>
+  );
+}
 
 // Empty state: cây Lottie tự vẽ nhánh (loop)
 function EmptyState() {
@@ -145,6 +159,27 @@ export default function App() {
   const inheritedMsgs = useMemo(() => (conv || []).filter((m) => m.inherited), [conv]);
   const ownMsgs = useMemo(() => (conv || []).filter((m) => !m.inherited), [conv]);
 
+  // panel mở/đóng làm đổi bề rộng vùng vẽ -> refit sau khi transition xong
+  const panelOpen = !!sel;
+  useEffect(() => {
+    const t = setTimeout(() => rfRef.current?.fitView({ padding: 0.3, maxZoom: 1, duration: 200 }), 240);
+    return () => clearTimeout(t);
+  }, [panelOpen]);
+
+  // ESC: đóng composer trước (nếu không đang chạy), rồi mới tới panel
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      setComposer((c) => {
+        if (c) return c.busy ? c : null;
+        setSel(null);
+        return c;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   // composer scale-in
   useGSAP(
     () => {
@@ -238,9 +273,10 @@ export default function App() {
   }, [composer, sel, loadForest, selectSession]);
 
   const doRename = async () => {
-    const name = prompt('Tên phiên:', sel.title);
-    if (name === null) return;
-    await rename(sel.sessionId, name);
+    const name = prompt('Tên phiên (để trống = quay về tên tự động):', sel.title);
+    if (name === null) return; // Cancel = không đổi gì
+    if (name.trim() === '' && !confirm(`Xóa tên tùy chỉnh "${sel.title}" và quay về tên tự động?`)) return;
+    await rename(sel.sessionId, name.trim());
     const nodes = await loadForest();
     setSel(nodes.find((n) => n.sessionId === sel.sessionId) || sel);
   };
@@ -298,6 +334,7 @@ export default function App() {
 
       <main className="canvas" ref={canvasRef}>
         {!sel && <EmptyState />}
+        <div className={'rf-wrap' + (sel ? ' with-panel' : '')}>
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -316,6 +353,7 @@ export default function App() {
           <MiniMap pannable zoomable nodeColor={(n) => n.data?.color || '#888'} maskColor="rgba(10,14,22,.7)" />
           <Controls />
         </ReactFlow>
+        </div>
       </main>
 
       {sel && (
@@ -331,21 +369,8 @@ export default function App() {
                 ⑂ {inheritedMsgs.length} tin nhắn kế thừa từ phiên cha — {showInherited ? 'ẩn đi' : 'bấm để xem'}
               </button>
             )}
-            {conv &&
-              showInherited &&
-              inheritedMsgs.map((m) => (
-                <div key={m.uuid} className={'msg inherited ' + m.role}>
-                  <div className="msg-role">{m.role === 'user' ? '🧑 You' : '🤖 Claude'}</div>
-                  <div className="msg-text">{m.text}</div>
-                </div>
-              ))}
-            {conv &&
-              ownMsgs.map((m) => (
-                <div key={m.uuid} className={'msg ' + m.role}>
-                  <div className="msg-role">{m.role === 'user' ? '🧑 You' : '🤖 Claude'}</div>
-                  <div className="msg-text">{m.text}</div>
-                </div>
-              ))}
+            {conv && showInherited && inheritedMsgs.map((m) => <Msg key={m.uuid} m={m} inherited />)}
+            {conv && ownMsgs.map((m) => <Msg key={m.uuid} m={m} />)}
             {conv && conv.length === 0 && <div className="muted">(phiên trống)</div>}
           </div>
           <div className="panel-actions">

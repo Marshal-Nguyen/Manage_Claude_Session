@@ -14,7 +14,15 @@ import { readFileSync, writeFileSync, readdirSync, renameSync, mkdirSync, exists
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
-import { buildTree, serializeTree, DEFAULT_PROJECT_DIR, listSessions, buildForest, PROJECTS_ROOT } from './treeBuilder.js';
+import {
+  buildTree,
+  serializeTree,
+  DEFAULT_PROJECT_DIR,
+  listSessions,
+  buildForest,
+  realText,
+  PROJECTS_ROOT,
+} from './treeBuilder.js';
 import { forkAt } from './forker.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -138,18 +146,6 @@ app.get('/api/forest', (req, res) => {
   res.json({ nodes: nodes.map((n) => ({ ...n, title: names[n.sessionId] || n.title })) });
 });
 
-// Chỉ lấy text người-đọc-được; bỏ hẳn tool_use/tool_result plumbing
-function realText(message) {
-  const c = message?.content;
-  if (typeof c === 'string') return c.trim();
-  if (Array.isArray(c))
-    return c
-      .filter((b) => b.type === 'text' && b.text?.trim())
-      .map((b) => b.text.trim())
-      .join('\n\n');
-  return '';
-}
-
 // Hội thoại tuyến tính của 1 phiên (cho panel xem nội dung).
 // ?parent=<id>: đánh dấu inherited=true cho message copy từ phiên cha (fork
 // copy nguyên prefix giữ uuid) để UI gập phần kế thừa lại.
@@ -226,6 +222,10 @@ app.post('/api/fork', (req, res) => {
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
+  // Tên nhánh = prompt đầu, tránh hàng loạt fork trùng tên aiTitle của cha
+  const names = loadNames();
+  names[forked.sessionId] = prompt.trim().slice(0, 60);
+  saveNames(names);
   runClaude(res, { resumeId: forked.sessionId, prompt, cwd });
 });
 

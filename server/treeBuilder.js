@@ -90,6 +90,24 @@ export function listSessions({ scope = 'all' } = {}) {
   return out;
 }
 
+// Chỉ lấy text người-đọc-được; bỏ tool_use/tool_result plumbing
+export function realText(message) {
+  const c = message?.content;
+  if (typeof c === 'string') return c.trim();
+  if (Array.isArray(c))
+    return c
+      .filter((b) => b.type === 'text' && b.text?.trim())
+      .map((b) => b.text.trim())
+      .join('\n\n');
+  return '';
+}
+
+// Tin "đếm được" trong panel: có text thật và không phải wrapper lệnh local
+export function isRealTurn(message) {
+  const t = realText(message);
+  return !!t && !t.startsWith('<local-command') && !t.startsWith('<command-');
+}
+
 // Phân loại 1 message: lấy snippet + có phải "lượt thật" (có text người đọc được)
 function classify(message) {
   const c = message?.content;
@@ -205,8 +223,11 @@ export function buildForest({ scope = 'all' } = {}) {
     }
     // Tuổi phiên = file mtime. KHÔNG dùng timestamp message đầu vì fork copy
     // nguyên timestamp gốc -> sẽ bằng phiên cha, không phân biệt được cha/con.
+    // uuids giữ MỌI message (tín hiệu so khớp fork); realTurns chỉ đếm tin thật
+    // để khớp với số tin panel hiển thị.
     const uuids = [];
     let leaf = null;
+    let realTurns = 0;
     for (const line of text.split('\n')) {
       if (!line.trim()) continue;
       let e;
@@ -218,11 +239,12 @@ export function buildForest({ scope = 'all' } = {}) {
       if ((e.type === 'user' || e.type === 'assistant') && e.uuid && e.message && e.isSidechain !== true) {
         uuids.push(e.uuid);
         leaf = e.uuid;
+        if (isRealTurn(e.message)) realTurns++;
         if (!uuidSessions.has(e.uuid)) uuidSessions.set(e.uuid, new Set());
         uuidSessions.get(e.uuid).add(m.sessionId);
       }
     }
-    info.set(m.sessionId, { ...m, uuids, leaf, firstTs: m.mtime, turns: uuids.length });
+    info.set(m.sessionId, { ...m, uuids, leaf, firstTs: m.mtime, turns: realTurns });
   }
 
   for (const s of info.values()) {
