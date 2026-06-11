@@ -4,11 +4,25 @@
   "description": "Visualize, fork and branch your Claude Code sessions as an interactive tree",
   "type": "module",
   "license": "MIT",
+  "bin": {
+    "claude-tree": "server/index.js"
+  },
+  "files": [
+    "server",
+    "web/dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "setup": "npm install --prefix server && npm install --prefix web && npm run build --prefix web",
     "start": "node server/index.js",
     "dev": "bash start.sh",
-    "build": "npm run build --prefix web"
+    "build": "npm run build --prefix web",
+    "prepublishOnly": "npm run setup"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   },
   "engines": {
     "node": ">=18"

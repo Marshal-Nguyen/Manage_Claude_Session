@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // API server cho Claude Tree.
 // - GET  /api/tree                 cây lượt thật (nodes/edges/branchPoints) + tên phiên
 // - GET  /api/node/:uuid           nội dung đầy đủ 1 lượt
@@ -25,6 +26,13 @@ import {
 } from './treeBuilder.js';
 import { forkAt } from './forker.js';
 import { openInTerminal } from './terminal.js';
+
+// Node >= 18 (fetch, structuredClone...) — báo rõ thay vì chết khó hiểu giữa chừng
+const major = Number(process.versions.node.split('.')[0]);
+if (major < 18) {
+  console.error(`⚠ Claude Tree cần Node.js >= 18 (bạn đang dùng ${process.versions.node}).`);
+  process.exit(1);
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Windows: npm cài claude dưới dạng shim .cmd -> spawn cần đúng tên
@@ -412,7 +420,7 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 4799;
 // bind localhost-only: API đọc được toàn bộ lịch sử chat, không mở ra LAN
-app.listen(PORT, '127.0.0.1', () => {
+const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`claude-tree chạy tại http://localhost:${PORT}`);
   const probe = spawnSync(CLAUDE_BIN, ['--version'], { encoding: 'utf8' });
   if (probe.error) {
@@ -421,4 +429,11 @@ app.listen(PORT, '127.0.0.1', () => {
   } else {
     console.log(`claude CLI: ${probe.stdout.trim()}`);
   }
+});
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE') {
+    console.error(`⚠ Cổng ${PORT} đang bị chiếm. Chạy với cổng khác: PORT=5000 npm start`);
+    process.exit(1);
+  }
+  throw e;
 });
