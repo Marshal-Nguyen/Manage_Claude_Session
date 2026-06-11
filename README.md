@@ -73,6 +73,23 @@ This app reads your **entire Claude Code chat history** — treat it accordingly
 - Do not reverse-proxy it to the internet without adding authentication.
 - `Chat`/`Fork` spawn the `claude` CLI under your account and consume API usage.
 
+## Platform support
+
+| | Status |
+|---|---|
+| **Linux** | ✅ Tested (terminal: kitty/gnome-terminal/konsole/alacritty/wezterm/xterm) |
+| **macOS** | 🟡 Implemented (Terminal.app via osascript) — community testing welcome |
+| **Windows** | 🟡 Implemented (Windows Terminal `wt` → `cmd` fallback, `claude.cmd` shim) — community testing welcome |
+
+Production (`npm start`) is pure Node and runs everywhere; `./start.sh` (dev hot-reload)
+needs bash — on Windows run `node server/index.js` and `npm run dev --prefix web` in two
+terminals instead.
+
+**Responsive**: desktop-first, but fully usable down to phone width — sidebar becomes a
+drawer (☰), the conversation panel goes full-screen, and message actions are always visible
+on touch. Browsers: any modern Chrome/Edge/Firefox/Safari (older Safari simply skips the
+`content-visibility` optimization).
+
 ## Troubleshooting
 
 - **"Cannot reach backend"** → run `npm start` (or `./start.sh` for dev) and retry.

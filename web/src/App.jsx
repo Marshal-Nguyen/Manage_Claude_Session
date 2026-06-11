@@ -194,6 +194,15 @@ const hashOf = (s) => (s ? `#/s/${s.project}/${s.sessionId}` : '#');
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('ct-lang') || 'vi');
   const t = T[lang];
+  // responsive: theo dõi bề rộng cửa sổ; <=820px = mobile (sidebar drawer, panel full)
+  const [winW, setWinW] = useState(window.innerWidth);
+  useEffect(() => {
+    const onR = () => setWinW(window.innerWidth);
+    window.addEventListener('resize', onR);
+    return () => window.removeEventListener('resize', onR);
+  }, []);
+  const isMobile = winW <= 820;
+  const [sideOpen, setSideOpen] = useState(false);
   const [forest, setForest] = useState([]);
   const [error, setError] = useState(null);
   const [proj, setProj] = useState('all');
@@ -274,6 +283,7 @@ export default function App() {
     setSel(node);
     setConv(null);
     setShowInherited(false);
+    setSideOpen(false);
     history.replaceState(null, '', hashOf(node));
     const c = await getConversation(node.sessionId, node.project, node.parent);
     setConv(c.messages || []);
@@ -566,9 +576,13 @@ export default function App() {
       </div>
     );
 
+  const effPanelW = Math.min(panelW, Math.max(360, winW - 320));
+
   return (
     <div className="app" ref={appRef}>
-      <aside className="sidebar">
+      <button className="menu-btn" onClick={() => setSideOpen((v) => !v)} aria-label="menu">☰</button>
+      {isMobile && sideOpen && <div className="side-backdrop" onClick={() => setSideOpen(false)} />}
+      <aside className={'sidebar' + (sideOpen ? ' open' : '')}>
         <div className="brand-row">
           <div className="brand">🌳 Claude Tree</div>
           <button className="lang" onClick={() => setLanguage(lang === 'vi' ? 'en' : 'vi')}>
@@ -638,7 +652,10 @@ export default function App() {
 
       <main className="canvas" ref={canvasRef}>
         {!sel && <EmptyState t={t} />}
-        <div className={'rf-wrap' + (sel ? ' with-panel' : '')} style={sel ? { right: panelW + 30 } : undefined}>
+        <div
+          className={'rf-wrap' + (sel ? ' with-panel' : '')}
+          style={sel && !isMobile ? { right: effPanelW + 30 } : undefined}
+        >
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}
@@ -660,8 +677,8 @@ export default function App() {
       </main>
 
       {sel && (
-        <aside className="panel" ref={panelRef} style={{ width: panelW }}>
-          <div className="panel-resizer" onMouseDown={startResize} title="Kéo để đổi cỡ" />
+        <aside className="panel" ref={panelRef} style={isMobile ? undefined : { width: effPanelW }}>
+          {!isMobile && <div className="panel-resizer" onMouseDown={startResize} title="Kéo để đổi cỡ" />}
           <div className="panel-head">
             <span className="panel-title">{sel.parent ? '⑂ ' : '🌳 '}{sel.title}</span>
             <button className="x" onClick={closePanel}>✕</button>

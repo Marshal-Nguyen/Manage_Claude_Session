@@ -27,6 +27,8 @@ import { forkAt } from './forker.js';
 import { openInTerminal } from './terminal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// Windows: npm cài claude dưới dạng shim .cmd -> spawn cần đúng tên
+const CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
 const DIR = DEFAULT_PROJECT_DIR;
 // project bắt buộc + chống path traversal (tên project không được chứa / hay ..)
 const projDir = (p) => {
@@ -98,7 +100,7 @@ function runClaude(res, { resumeId, prompt, cwd }) {
   if (resumeId) args.push('--resume', resumeId);
   send('start', { sessionId: resumeId ?? null });
 
-  const child = spawn('claude', args, { cwd: cwd || homedir(), stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(CLAUDE_BIN, args, { cwd: cwd || homedir(), stdio: ['ignore', 'pipe', 'pipe'] });
   let buf = '';
   let session = resumeId ?? null;
   let err = '';
@@ -253,7 +255,7 @@ app.post('/api/fork', (req, res) => {
 app.post('/api/open-terminal', (req, res) => {
   const { sessionId, cwd } = req.body || {};
   if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
-  const term = openInTerminal(['claude', '--resume', sessionId], cwd || homedir());
+  const term = openInTerminal([CLAUDE_BIN, '--resume', sessionId], cwd || homedir());
   res.json({ ok: true, terminal: term });
 });
 
@@ -270,7 +272,7 @@ app.post('/api/fork-terminal', (req, res) => {
   const names = loadNames();
   names[forked.sessionId] = ('⑂ ' + (title || 'fork')).slice(0, 60);
   saveNames(names);
-  const term = openInTerminal(['claude', '--resume', forked.sessionId], cwd || homedir());
+  const term = openInTerminal([CLAUDE_BIN, '--resume', forked.sessionId], cwd || homedir());
   res.json({ ok: true, sessionId: forked.sessionId, terminal: term });
 });
 
@@ -412,7 +414,7 @@ const PORT = process.env.PORT || 4799;
 // bind localhost-only: API đọc được toàn bộ lịch sử chat, không mở ra LAN
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`claude-tree chạy tại http://localhost:${PORT}`);
-  const probe = spawnSync('claude', ['--version'], { encoding: 'utf8' });
+  const probe = spawnSync(CLAUDE_BIN, ['--version'], { encoding: 'utf8' });
   if (probe.error) {
     console.warn('⚠ Không tìm thấy `claude` CLI trong PATH — xem/fork cây vẫn chạy, nhưng Chat/Fork sẽ lỗi.');
     console.warn('  Cài đặt: https://docs.anthropic.com/en/docs/claude-code');
