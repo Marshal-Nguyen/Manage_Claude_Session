@@ -24,6 +24,7 @@ import {
   PROJECTS_ROOT,
 } from './treeBuilder.js';
 import { forkAt } from './forker.js';
+import { openInTerminal } from './terminal.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIR = DEFAULT_PROJECT_DIR;
@@ -246,6 +247,31 @@ app.post('/api/fork', (req, res) => {
   names[forked.sessionId] = prompt.trim().slice(0, 60);
   saveNames(names);
   runClaude(res, { resumeId: forked.sessionId, prompt, cwd });
+});
+
+// Mở terminal thật resume phiên — chat đầy đủ năng lực CLI, webapp chỉ trực quan hóa
+app.post('/api/open-terminal', (req, res) => {
+  const { sessionId, cwd } = req.body || {};
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
+  const term = openInTerminal(['claude', '--resume', sessionId], cwd || homedir());
+  res.json({ ok: true, terminal: term });
+});
+
+// Fork tại uuid (không gửi prompt) rồi mở terminal vào nhánh mới
+app.post('/api/fork-terminal', (req, res) => {
+  const { uuid, project, cwd, sessionId, title } = req.body || {};
+  if (!uuid) return res.status(400).json({ error: 'uuid required' });
+  let forked;
+  try {
+    forked = forkAt(uuid, projDir(project), sessionId);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+  const names = loadNames();
+  names[forked.sessionId] = ('⑂ ' + (title || 'fork')).slice(0, 60);
+  saveNames(names);
+  const term = openInTerminal(['claude', '--resume', forked.sessionId], cwd || homedir());
+  res.json({ ok: true, sessionId: forked.sessionId, terminal: term });
 });
 
 app.post('/api/rename', (req, res) => {

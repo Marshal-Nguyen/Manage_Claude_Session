@@ -14,10 +14,13 @@ new branch while the original stays untouched.
 
 - 🌳 **Session tree** — auto-detects fork relationships across all your Claude Code projects
   (forks share message UUIDs with their parent; no extra bookkeeping needed)
-- ⑂ **Fork from anywhere** — from a session's tip, or hover any message and fork from that
-  exact point in history
-- 💬 **Chat in branches** — streams Claude's reply live (SSE), the new branch appears on the
-  tree immediately, named after your first prompt
+- ⑂ **Fork → Terminal** — forking opens a real terminal (kitty/gnome-terminal/konsole/…)
+  running `claude --resume` on the new branch: chat with the full CLI experience (tool
+  permissions, slash commands, MCP). The web app visualizes; the terminal is where you work.
+  Works from a session's tip or from any message (hover ⑂). Override emulator with
+  `CLAUDE_TREE_TERMINAL`.
+- ⚡ **Quick chat** — for one-off questions there's also an in-app headless composer (SSE
+  streaming)
 - 📖 **Readable conversations** — markdown rendering, tool-call noise filtered out, inherited
   parent messages collapsed behind a toggle
 - 🔍 **Full-text search** — search inside conversation *content* across every session

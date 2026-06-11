@@ -12,6 +12,20 @@ export const searchContent = (q, scope = 'all') =>
     r.json(),
   );
 
+export const openTerminal = (sessionId, cwd) =>
+  fetch('/api/open-terminal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, cwd }),
+  }).then((r) => r.json());
+
+export const forkTerminal = (body) =>
+  fetch('/api/fork-terminal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then((r) => r.json());
+
 export const rename = (sessionId, name) =>
   fetch('/api/rename', {
     method: 'POST',

@@ -17,7 +17,17 @@ import remarkGfm from 'remark-gfm';
 import treeAnim from './tree-lottie.json';
 import SessionNode from './nodes.jsx';
 import { layout } from './layout.js';
-import { getForest, getConversation, searchContent, rename, delSession, exportUrl, stream } from './api.js';
+import {
+  getForest,
+  getConversation,
+  searchContent,
+  rename,
+  delSession,
+  exportUrl,
+  stream,
+  openTerminal,
+  forkTerminal,
+} from './api.js';
 
 gsap.registerPlugin(useGSAP);
 
@@ -51,8 +61,10 @@ const T = {
     copy: 'Copy nội dung',
     copied: '✓ Đã copy',
     forkHere: 'Fork từ tin nhắn này',
-    forkBtn: '⑂ Fork nhánh mới',
-    continueBtn: '↳ Chat tiếp',
+    forkBtn: '⑂ Fork → Terminal',
+    openTerm: '▸ Terminal',
+    continueBtn: '⚡ Chat nhanh',
+    termOpened: (term) => `Đã mở ${term} — chat bên đó xong quay lại đây, cây tự cập nhật`,
     renameBtn: '✎ Đặt tên',
     deleteBtn: '🗑 Xóa',
     exportMd: '⤓ MD',
@@ -93,8 +105,10 @@ const T = {
     copy: 'Copy message',
     copied: '✓ Copied',
     forkHere: 'Fork from this message',
-    forkBtn: '⑂ Fork new branch',
-    continueBtn: '↳ Continue',
+    forkBtn: '⑂ Fork → Terminal',
+    openTerm: '▸ Terminal',
+    continueBtn: '⚡ Quick chat',
+    termOpened: (term) => `Opened ${term} — chat there, the tree refreshes when you come back`,
     renameBtn: '✎ Rename',
     deleteBtn: '🗑 Delete',
     exportMd: '⤓ MD',
@@ -187,8 +201,13 @@ export default function App() {
   const [hits, setHits] = useState(null); // kết quả search nội dung
   const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(null);
+  const selRef = useRef(null);
+  useEffect(() => {
+    selRef.current = sel;
+  }, [sel]);
   const [conv, setConv] = useState(null);
   const [showInherited, setShowInherited] = useState(false);
+  const [note, setNote] = useState(null); // toast nhỏ (vd: đã mở terminal)
   const convRef = useRef(null);
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
@@ -444,7 +463,46 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [closePanel]);
 
-  const openFork = (anchorUuid) => setComposer({ mode: 'fork', anchor: anchorUuid || null, text: '' });
+  const toast = (msg) => {
+    setNote(msg);
+    setTimeout(() => setNote(null), 4500);
+  };
+
+  // quay lại cửa sổ webapp (sau khi chat ở terminal) -> tự refresh cây + hội thoại
+  useEffect(() => {
+    const onFocus = async () => {
+      const nodes = await loadForest();
+      const s = selRef.current;
+      if (!s) return;
+      const fresh = nodes.find((n) => n.sessionId === s.sessionId);
+      if (fresh) setSel(fresh);
+      const c = await getConversation(s.sessionId, s.project, s.parent);
+      setConv((prev) => (prev && c.messages && c.messages.length === prev.length ? prev : c.messages || prev));
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadForest]);
+
+  // fork (từ tip hoặc từ 1 tin nhắn) -> tạo nhánh + mở terminal thật
+  const openFork = async (anchorUuid) => {
+    const r = await forkTerminal({
+      uuid: anchorUuid || sel.leaf,
+      project: sel.project,
+      cwd: sel.cwd,
+      sessionId: sel.sessionId,
+      title: sel.title,
+    });
+    if (r.error) toast('⚠ ' + r.error);
+    else {
+      toast(t.termOpened(r.terminal));
+      setTimeout(loadForest, 2500);
+    }
+  };
+  const doOpenTerminal = async () => {
+    const r = await openTerminal(sel.sessionId, sel.cwd);
+    if (r.error) toast('⚠ ' + r.error);
+    else toast(t.termOpened(r.terminal));
+  };
 
   const send = useCallback(async () => {
     if (!composer?.text.trim() || composer.busy) return;
@@ -623,6 +681,7 @@ export default function App() {
           </div>
           <div className="panel-actions">
             <button className="btn primary" onClick={() => openFork(null)}>{t.forkBtn}</button>
+            <button className="btn" onClick={doOpenTerminal}>{t.openTerm}</button>
             <button className="btn" onClick={() => setComposer({ mode: 'continue', text: '' })}>{t.continueBtn}</button>
             <button className="btn" onClick={doRename}>{t.renameBtn}</button>
             <a className="btn" href={exportUrl(sel.sessionId, sel.project, sel.title)} target="_blank" rel="noreferrer">
@@ -635,6 +694,8 @@ export default function App() {
           </div>
         </aside>
       )}
+
+      {note && <div className="toast">{note}</div>}
 
       {composer && (
         <div className="composer-overlay" onClick={(e) => e.target === e.currentTarget && !composer.busy && setComposer(null)}>
