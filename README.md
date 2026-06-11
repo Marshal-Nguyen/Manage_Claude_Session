@@ -1,42 +1,112 @@
 # 🌳 Claude Tree
 
-UI dạng cây node để **xem, rẽ nhánh (fork) và chat tiếp** các phiên Claude Code —
-mỗi node là 1 lượt chat, fork từ bất kỳ điểm nào mà không làm loãng phiên gốc.
+**Visualize, fork and branch your Claude Code sessions as an interactive tree.**
 
-## Chạy
+Ever had a Claude Code conversation reach a point where you wanted to explore *several
+directions at once* — without polluting the main session's context? Claude Tree turns your
+sessions into a visual tree: every node is a session, every edge is a fork. Click any
+session, fork from its tip **or from any message in the middle**, and keep chatting in the
+new branch while the original stays untouched.
+
+![Claude Tree screenshot](docs/screenshot.png)
+
+## Features
+
+- 🌳 **Session tree** — auto-detects fork relationships across all your Claude Code projects
+  (forks share message UUIDs with their parent; no extra bookkeeping needed)
+- ⑂ **Fork from anywhere** — from a session's tip, or hover any message and fork from that
+  exact point in history
+- 💬 **Chat in branches** — streams Claude's reply live (SSE), the new branch appears on the
+  tree immediately, named after your first prompt
+- 📖 **Readable conversations** — markdown rendering, tool-call noise filtered out, inherited
+  parent messages collapsed behind a toggle
+- 🔍 **Full-text search** — search inside conversation *content* across every session
+- 🔗 **Deep links** — `#/s/<project>/<session>` survives refresh, shareable
+- ⤓ **Export** — Markdown or JSON, filename from the session title
+- 🌐 **Vietnamese / English** UI toggle
+
+## Quickstart
+
+Requires **Node.js ≥ 18** and the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+(`claude`) logged in.
 
 ```bash
-cd ~/claude-tree
-# lần đầu: cd server && npm i ; cd ../web && npm i
-./start.sh
-# mở http://localhost:5174
+git clone <this-repo> claude-tree && cd claude-tree
+npm run setup     # installs server + web deps, builds the frontend
+npm start         # → http://localhost:4799
 ```
 
-Backend đọc trực tiếp các phiên ở `~/.claude/projects/-home-giang-nguyen/*.jsonl`.
+For development (hot reload):
 
-## Hoạt động thế nào
+```bash
+./start.sh        # backend :4799 + Vite dev server → http://localhost:5174
+```
 
-- **treeBuilder** gộp mọi file `.jsonl` thành 1 cây theo `uuid`. Vì `--fork-session`
-  copy nguyên prefix và **giữ nguyên uuid**, các nhánh tự merge tại điểm fork.
-  Đã lọc sidechain (subagent) và tool plumbing để chỉ còn "lượt thật".
-- **forker** fork tại 1 message bất kỳ: ghi file JSONL prefix `root→X` (giữ uuid,
-  đổi `sessionId`) rồi `claude --resume` — đúng cơ chế native nhưng cắt được giữa hội thoại.
-- **API** (Express) stream câu trả lời qua SSE bằng cách spawn
-  `claude -p --output-format stream-json --include-partial-messages`.
-- **Web** (React + React Flow + elkjs) vẽ cây, click node xem nội dung, nút
-  **⑂ Fork từ đây** / **↳ Tiếp tục**, đổi tên / export / xóa, lưu layout vào localStorage.
+## Configuration
 
-## UI premium (GSAP + Lottie)
+| Env var | Default | Meaning |
+|---|---|---|
+| `PORT` | `4799` | API/app port |
+| `CLAUDE_PROJECTS_DIR` | `~/.claude/projects` | Where Claude Code stores session JSONL files |
 
-- Motion: **GSAP + @gsap/react** (`useGSAP`) — node pop-in stagger theo họ fork, panel slide-in,
-  message stagger, composer scale-in, sidebar trượt vào. Đợi React Flow commit bằng double-rAF + `contextSafe`.
-- Empty state: **lottie-web** chạy `src/tree-lottie.json` (cây tự vẽ nhánh, tự viết tay theo skill text-to-lottie).
-- Theme: glassmorphism + aurora backdrop + Inter, định nghĩa trong `src/styles.css`.
-- Skill đã cài ở `~/.claude/skills/`: 8 skill `gsap-*` (official GreenSock) + `text-to-lottie` (Diffusion Studio).
+## How forking works (and why it's safe)
 
-## Cấu trúc
+Claude Code stores each session as a JSONL file under `~/.claude/projects/<project>/`.
+Its native `--fork-session` copies the conversation prefix into a **new** session file,
+keeping the original message UUIDs. Claude Tree uses the same mechanism:
+
+- **Fork from tip** → resumes the session with `--fork-session`
+- **Fork from a middle message** → synthesizes a new JSONL containing only the prefix up to
+  that message, then resumes it
+
+Your original session file is **never modified**. Deleting a session moves the file to
+`server/.trash/` (recoverable), it is never erased outright.
+
+## Security notes
+
+This app reads your **entire Claude Code chat history** — treat it accordingly:
+
+- The server binds to `127.0.0.1` only and CORS is restricted to localhost origins.
+- Do not reverse-proxy it to the internet without adding authentication.
+- `Chat`/`Fork` spawn the `claude` CLI under your account and consume API usage.
+
+## Troubleshooting
+
+- **"Cannot reach backend"** → run `npm start` (or `./start.sh` for dev) and retry.
+- **Chat/Fork errors** → make sure `claude --version` works in your terminal; the server
+  logs a warning at startup if the CLI is missing.
+- **Port in use** → `PORT=5000 npm start`.
+- **First content-search is slow** → it scans every session file once, then caches by mtime.
+
+## Architecture
 
 ```
-server/  treeBuilder.js · forker.js · index.js   (API :4799)
-web/     src/App.jsx · nodes.jsx · layout.js · api.js   (Vite :5174)
+server/   Express API (Node, no DB)
+  treeBuilder.js  scan JSONL → session forest (fork detection via shared UUIDs)
+  forker.js       fork-at-any-message (prefix synthesis, original untouched)
+  index.js        REST + SSE streaming (spawns `claude -p --output-format stream-json`)
+web/      React + Vite
+  React Flow + elkjs (tree canvas) · GSAP (motion) · Lottie (empty state)
+  react-markdown (conversation rendering)
 ```
+
+---
+
+## 🇻🇳 Tiếng Việt
+
+**Claude Tree** biến các phiên chat Claude Code thành cây trực quan: mỗi node là một phiên,
+mỗi cạnh là một lần fork. Chọn phiên → xem hội thoại → **⑂ Fork** (từ cuối phiên hoặc từ
+bất kỳ tin nhắn nào) → chat tiếp trong nhánh mới, phiên gốc luôn nguyên vẹn.
+
+```bash
+npm run setup && npm start   # → http://localhost:4799
+```
+
+- Tìm kiếm full-text trong nội dung mọi phiên; deep-link sống qua F5
+- Tin nhắn kế thừa từ phiên cha được gập gọn; markdown render đầy đủ
+- Export Markdown/JSON; đổi ngôn ngữ VI/EN ở góc sidebar
+- Xóa phiên = chuyển vào `server/.trash/`, khôi phục được
+
+## License
+
+MIT © 2026 Giang Nguyen
