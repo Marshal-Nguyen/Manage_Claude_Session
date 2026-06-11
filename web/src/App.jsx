@@ -191,6 +191,30 @@ export default function App() {
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
   const [composer, setComposer] = useState(null);
+  // bề rộng panel: kéo-thả được, lưu localStorage; mặc định 36% màn hình
+  const [panelW, setPanelW] = useState(() => {
+    const saved = Number(localStorage.getItem('ct-panel-w'));
+    return saved >= 380 ? saved : Math.min(620, Math.max(440, Math.round(window.innerWidth * 0.36)));
+  });
+  const panelWRef = useRef(panelW);
+  useEffect(() => {
+    panelWRef.current = panelW;
+  }, [panelW]);
+  const startResize = (e) => {
+    e.preventDefault();
+    document.body.classList.add('resizing');
+    const move = (ev) =>
+      setPanelW(Math.min(Math.max(window.innerWidth - ev.clientX - 16, 380), window.innerWidth - 480));
+    const up = () => {
+      document.body.classList.remove('resizing');
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      localStorage.setItem('ct-panel-w', String(panelWRef.current));
+      rfRef.current?.fitView({ padding: 0.3, maxZoom: 1, duration: 200 });
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
   const colorMap = useRef(new Map());
   const rfRef = useRef(null);
   const appRef = useRef(null);
@@ -523,7 +547,7 @@ export default function App() {
 
       <main className="canvas" ref={canvasRef}>
         {!sel && <EmptyState t={t} />}
-        <div className={'rf-wrap' + (sel ? ' with-panel' : '')}>
+        <div className={'rf-wrap' + (sel ? ' with-panel' : '')} style={sel ? { right: panelW + 30 } : undefined}>
           <ReactFlow
             nodes={rfNodes}
             edges={rfEdges}
@@ -545,7 +569,8 @@ export default function App() {
       </main>
 
       {sel && (
-        <aside className="panel" ref={panelRef}>
+        <aside className="panel" ref={panelRef} style={{ width: panelW }}>
+          <div className="panel-resizer" onMouseDown={startResize} title="Kéo để đổi cỡ" />
           <div className="panel-head">
             <span className="panel-title">{sel.parent ? '⑂ ' : '🌳 '}{sel.title}</span>
             <button className="x" onClick={closePanel}>✕</button>

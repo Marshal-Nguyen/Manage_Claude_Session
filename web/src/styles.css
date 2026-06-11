@@ -213,7 +213,7 @@ select.search { cursor: pointer; appearance: none; }
   top: 16px;
   right: 16px;
   bottom: 16px;
-  width: 396px;
+  width: 480px; /* fallback — App điều khiển bằng inline style, kéo-thả được */
   background: var(--glass-strong);
   backdrop-filter: blur(22px);
   border: 1px solid var(--line-bright);
@@ -224,6 +224,32 @@ select.search { cursor: pointer; appearance: none; }
   z-index: 5;
   overflow: hidden;
 }
+/* tay kéo đổi cỡ panel */
+.panel-resizer {
+  position: absolute;
+  left: -7px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: col-resize;
+  z-index: 6;
+}
+.panel-resizer::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 44px;
+  border-radius: 3px;
+  background: var(--line-bright);
+  transition: background 0.15s;
+}
+.panel-resizer:hover::after { background: var(--accent); }
+body.resizing { cursor: col-resize; user-select: none; }
+body.resizing .rf-wrap { transition: none; }
+
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -280,7 +306,7 @@ select.search { cursor: pointer; appearance: none; }
 .mini:hover { color: var(--text); border-color: var(--accent); }
 .msg-role { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .msg.user .msg-role { text-align: right; }
-.msg-text { line-height: 1.55; font-size: 12.5px; padding: 10px 13px; border-radius: 14px; overflow-wrap: break-word; }
+.msg-text { line-height: 1.6; font-size: 13.5px; padding: 11px 14px; border-radius: 14px; overflow-wrap: break-word; }
 /* markdown bên trong bong bóng */
 .msg-text p { margin: 0 0 8px; }
 .msg-text p:last-child { margin-bottom: 0; }
