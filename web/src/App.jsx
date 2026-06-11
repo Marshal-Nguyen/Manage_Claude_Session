@@ -410,9 +410,17 @@ export default function App() {
     [byId, selectSession],
   );
 
-  // cuộn hội thoại
+  // cuộn xuống tin mới nhất. Lặp vài nhịp vì content-visibility làm scrollHeight
+  // chỉ là ước lượng lúc đầu, layout nở dần ra sau khi render thật.
   useEffect(() => {
-    if (conv && convRef.current) convRef.current.scrollTop = convRef.current.scrollHeight;
+    if (!conv) return;
+    const bottom = () => {
+      const el = convRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    bottom();
+    const ids = [60, 180, 400, 800].map((ms) => setTimeout(bottom, ms));
+    return () => ids.forEach(clearTimeout);
   }, [conv]);
   useEffect(() => {
     if (convRef.current) convRef.current.scrollTop = showInherited ? 0 : convRef.current.scrollHeight;
