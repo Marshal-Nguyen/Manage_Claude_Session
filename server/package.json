@@ -1,0 +1,14 @@
+{
+  "name": "claude-tree-server",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "tree": "node treeBuilder.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
