@@ -44,6 +44,7 @@ const T = {
     loadingConv: 'Đang tải hội thoại…',
     emptyConv: '(phiên trống)',
     inherited: (n, shown) => `⑂ ${n} tin nhắn kế thừa từ phiên cha — ${shown ? 'ẩn đi' : 'bấm để xem'}`,
+    older: (n) => `↑ Hiện ${n} tin cũ hơn`,
     turns: (n) => `${n} lượt`,
     you: '🧑 You',
     claude: '🤖 Claude',
@@ -85,6 +86,7 @@ const T = {
     loadingConv: 'Loading conversation…',
     emptyConv: '(empty session)',
     inherited: (n, shown) => `⑂ ${n} messages inherited from parent — ${shown ? 'hide' : 'show'}`,
+    older: (n) => `↑ Show ${n} older messages`,
     turns: (n) => `${n} turns`,
     you: '🧑 You',
     claude: '🤖 Claude',
@@ -331,11 +333,13 @@ export default function App() {
     },
     { dependencies: [sel?.sessionId] },
   );
+  // chỉ animate ~15 tin cuối — hội thoại dài không cần (và không nên) tween hàng trăm node
   useGSAP(
     () => {
       const msgs = panelRef.current?.querySelectorAll('.msg');
       if (!msgs?.length) return;
-      gsap.from(msgs, { opacity: 0, y: 10, duration: 0.35, ease: 'power2.out', stagger: { amount: 0.35 } });
+      const subset = [...msgs].slice(-15);
+      gsap.from(subset, { opacity: 0, y: 10, duration: 0.35, ease: 'power2.out', stagger: { amount: 0.25 } });
     },
     { dependencies: [conv] },
   );
@@ -397,6 +401,27 @@ export default function App() {
 
   const inheritedMsgs = useMemo(() => (conv || []).filter((m) => m.inherited), [conv]);
   const ownMsgs = useMemo(() => (conv || []).filter((m) => !m.inherited), [conv]);
+
+  // hiệu năng: chỉ render cửa sổ tin mới nhất, bấm nút mới nạp thêm tin cũ
+  const [visOwn, setVisOwn] = useState(40);
+  const [visInh, setVisInh] = useState(40);
+  useEffect(() => {
+    setVisOwn(40);
+    setVisInh(40);
+  }, [sel?.sessionId]);
+  const ownShown = ownMsgs.slice(-visOwn);
+  const inhShown = inheritedMsgs.slice(-visInh);
+  // nạp thêm tin cũ mà không làm nhảy vị trí scroll
+  const showOlder = (setter) => {
+    const el = convRef.current;
+    const keep = el ? el.scrollHeight - el.scrollTop : 0;
+    setter((v) => v + 60);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (el) el.scrollTop = el.scrollHeight - keep;
+      }),
+    );
+  };
 
   // panel mở/đóng đổi bề rộng vùng vẽ -> refit
   const panelOpen = !!sel;
@@ -582,8 +607,18 @@ export default function App() {
                 {t.inherited(inheritedMsgs.length, showInherited)}
               </button>
             )}
-            {conv && showInherited && inheritedMsgs.map((m) => <Msg key={m.uuid} m={m} inherited t={t} onForkHere={openFork} />)}
-            {conv && ownMsgs.map((m) => <Msg key={m.uuid} m={m} t={t} onForkHere={openFork} />)}
+            {conv && showInherited && inheritedMsgs.length > inhShown.length && (
+              <button className="inherit-toggle" onClick={() => showOlder(setVisInh)}>
+                {t.older(inheritedMsgs.length - inhShown.length)}
+              </button>
+            )}
+            {conv && showInherited && inhShown.map((m) => <Msg key={m.uuid} m={m} inherited t={t} onForkHere={openFork} />)}
+            {conv && ownMsgs.length > ownShown.length && (
+              <button className="inherit-toggle" onClick={() => showOlder(setVisOwn)}>
+                {t.older(ownMsgs.length - ownShown.length)}
+              </button>
+            )}
+            {conv && ownShown.map((m) => <Msg key={m.uuid} m={m} t={t} onForkHere={openFork} />)}
             {conv && conv.length === 0 && <div className="muted">{t.emptyConv}</div>}
           </div>
           <div className="panel-actions">

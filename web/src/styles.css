@@ -26,20 +26,20 @@ body {
 }
 
 /* ── aurora backdrop ── */
+/* không dùng filter:blur — radial-gradient tự mềm, GPU rẻ hơn hàng chục lần */
 .app::before,
 .app::after {
   content: '';
   position: fixed;
-  width: 60vw;
-  height: 60vw;
+  width: 70vw;
+  height: 70vw;
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.16;
+  opacity: 0.14;
   pointer-events: none;
   z-index: 0;
 }
-.app::before { background: radial-gradient(circle, #4f5fd4 0%, transparent 65%); top: -22vw; right: -14vw; }
-.app::after { background: radial-gradient(circle, #6d3fa8 0%, transparent 65%); bottom: -26vw; left: 10vw; }
+.app::before { background: radial-gradient(circle, #4f5fd4 0%, rgba(79, 95, 212, 0.25) 35%, transparent 70%); top: -26vw; right: -18vw; }
+.app::after { background: radial-gradient(circle, #6d3fa8 0%, rgba(109, 63, 168, 0.25) 35%, transparent 70%); bottom: -30vw; left: 6vw; }
 
 .loading { display: grid; place-items: center; height: 100%; color: var(--muted); }
 
@@ -55,7 +55,7 @@ body {
 /* ── sidebar ── */
 .sidebar {
   background: var(--bg2);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -174,7 +174,7 @@ select.search { cursor: pointer; appearance: none; }
 .snode {
   width: 236px;
   background: var(--glass);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 12px 14px;
@@ -215,7 +215,7 @@ select.search { cursor: pointer; appearance: none; }
   bottom: 16px;
   width: 480px; /* fallback — App điều khiển bằng inline style, kéo-thả được */
   background: var(--glass-strong);
-  backdrop-filter: blur(22px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--line-bright);
   border-radius: 18px;
   display: flex;
@@ -279,7 +279,7 @@ body.resizing .rf-wrap { transition: none; }
 }
 .inherit-toggle:hover { background: rgba(124, 140, 250, 0.13); color: var(--text); }
 .msg.inherited { opacity: 0.6; }
-.msg { max-width: 92%; position: relative; }
+.msg { max-width: 92%; position: relative; content-visibility: auto; contain-intrinsic-size: auto 90px; }
 .msg.user { align-self: flex-end; }
 .msg.assistant { align-self: flex-start; }
 .msg-time { font-weight: 400; opacity: 0.75; text-transform: none; letter-spacing: 0; }
@@ -376,7 +376,7 @@ body.resizing .rf-wrap { transition: none; }
 .composer {
   width: min(660px, 92vw);
   background: var(--glass-strong);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--line-bright);
   border-radius: 20px;
   padding: 22px;
