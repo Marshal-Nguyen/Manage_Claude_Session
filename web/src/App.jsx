@@ -17,26 +17,140 @@ import remarkGfm from 'remark-gfm';
 import treeAnim from './tree-lottie.json';
 import SessionNode from './nodes.jsx';
 import { layout } from './layout.js';
-import { getForest, getConversation, rename, delSession, exportUrl, stream } from './api.js';
+import { getForest, getConversation, searchContent, rename, delSession, exportUrl, stream } from './api.js';
 
 gsap.registerPlugin(useGSAP);
 
 const nodeTypes = { session: SessionNode };
+const PALETTE = ['#5b8def', '#e0598b', '#3fb68b', '#e0a23f', '#9b7ede', '#48b5c4', '#d96f5e', '#7aa93f'];
+const colorOf = (sid, map) => {
+  if (!map.has(sid)) map.set(sid, PALETTE[map.size % PALETTE.length]);
+  return map.get(sid);
+};
+const base = (p) => (p || '').split('/').filter(Boolean).pop() || p;
 
-// 1 bong bóng tin nhắn, nội dung render markdown
-function Msg({ m, inherited }) {
+// ── i18n ──
+const T = {
+  vi: {
+    allProjects: (n) => `Tất cả project (${n})`,
+    searchPh: 'Tìm tiêu đề hoặc nội dung…',
+    contentHits: (n) => `Trong nội dung hội thoại (${n})`,
+    searching: 'Đang tìm trong nội dung…',
+    noResult: 'Không tìm thấy phiên nào',
+    legend: (n, hidden) => `${n} phiên · 🌳 gốc · ⑂ fork${hidden ? ` · ${hidden} phiên rác đã ẩn` : ''}`,
+    branches: (n) => `${n} nhánh`,
+    emptyTitle: 'Chọn một phiên để xem cây nhánh',
+    emptySub: 'Fork từ bất kỳ phiên nào — phiên gốc luôn nguyên vẹn',
+    loadingConv: 'Đang tải hội thoại…',
+    emptyConv: '(phiên trống)',
+    inherited: (n, shown) => `⑂ ${n} tin nhắn kế thừa từ phiên cha — ${shown ? 'ẩn đi' : 'bấm để xem'}`,
+    turns: (n) => `${n} lượt`,
+    you: '🧑 You',
+    claude: '🤖 Claude',
+    copy: 'Copy nội dung',
+    copied: '✓ Đã copy',
+    forkHere: 'Fork từ tin nhắn này',
+    forkBtn: '⑂ Fork nhánh mới',
+    continueBtn: '↳ Chat tiếp',
+    renameBtn: '✎ Đặt tên',
+    deleteBtn: '🗑 Xóa',
+    exportMd: '⤓ MD',
+    exportJson: '⤓ JSON',
+    composerFork: (t) => `⑂ Fork nhánh mới từ "${t}"`,
+    composerForkMsg: '⑂ Fork từ tin nhắn này',
+    composerCont: (t) => `↳ Chat tiếp trong "${t}"`,
+    composerPh: 'Nhập câu hỏi…',
+    thinking: '⏳ Claude đang suy nghĩ…',
+    hint: '⌘/Ctrl + Enter để gửi',
+    send: 'Gửi',
+    cancel: 'Hủy',
+    running: 'Đang chạy…',
+    renamePrompt: 'Tên phiên (để trống = quay về tên tự động):',
+    renameConfirm: (t) => `Xóa tên tùy chỉnh "${t}" và quay về tên tự động?`,
+    deleteConfirm: (t) => `Chuyển phiên "${t}" vào thùng rác?`,
+    backendDown: 'Không kết nối được backend (:4799). Chạy ./start.sh rồi bấm thử lại.',
+    retry: 'Thử lại',
+    ago: { now: 'vừa xong', m: ' phút', h: ' giờ', d: ' ngày' },
+  },
+  en: {
+    allProjects: (n) => `All projects (${n})`,
+    searchPh: 'Search title or content…',
+    contentHits: (n) => `In conversation content (${n})`,
+    searching: 'Searching content…',
+    noResult: 'No sessions found',
+    legend: (n, hidden) => `${n} sessions · 🌳 root · ⑂ fork${hidden ? ` · ${hidden} junk hidden` : ''}`,
+    branches: (n) => `${n} branches`,
+    emptyTitle: 'Pick a session to view its branch tree',
+    emptySub: 'Fork from any session — the original stays untouched',
+    loadingConv: 'Loading conversation…',
+    emptyConv: '(empty session)',
+    inherited: (n, shown) => `⑂ ${n} messages inherited from parent — ${shown ? 'hide' : 'show'}`,
+    turns: (n) => `${n} turns`,
+    you: '🧑 You',
+    claude: '🤖 Claude',
+    copy: 'Copy message',
+    copied: '✓ Copied',
+    forkHere: 'Fork from this message',
+    forkBtn: '⑂ Fork new branch',
+    continueBtn: '↳ Continue',
+    renameBtn: '✎ Rename',
+    deleteBtn: '🗑 Delete',
+    exportMd: '⤓ MD',
+    exportJson: '⤓ JSON',
+    composerFork: (t) => `⑂ Fork new branch from "${t}"`,
+    composerForkMsg: '⑂ Fork from this message',
+    composerCont: (t) => `↳ Continue in "${t}"`,
+    composerPh: 'Type your prompt…',
+    thinking: '⏳ Claude is thinking…',
+    hint: '⌘/Ctrl + Enter to send',
+    send: 'Send',
+    cancel: 'Cancel',
+    running: 'Running…',
+    renamePrompt: 'Session name (empty = revert to auto title):',
+    renameConfirm: (t) => `Remove custom name "${t}" and revert to auto title?`,
+    deleteConfirm: (t) => `Move session "${t}" to trash?`,
+    backendDown: 'Cannot reach backend (:4799). Run ./start.sh then retry.',
+    retry: 'Retry',
+    ago: { now: 'now', m: 'm', h: 'h', d: 'd' },
+  },
+};
+
+function ago(ms, t) {
+  const s = (Date.now() - ms) / 1000;
+  if (s < 60) return t.ago.now;
+  if (s < 3600) return Math.floor(s / 60) + t.ago.m;
+  if (s < 86400) return Math.floor(s / 3600) + t.ago.h;
+  return Math.floor(s / 86400) + t.ago.d;
+}
+
+// 1 bong bóng tin nhắn: markdown + hover actions (copy / fork-từ-đây / giờ)
+function Msg({ m, inherited, t, onForkHere }) {
+  const [copied, setCopied] = useState(false);
+  const time = m.ts ? new Date(m.ts).toLocaleString() : '';
+  const doCopy = () => {
+    navigator.clipboard.writeText(m.text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
   return (
     <div className={'msg ' + m.role + (inherited ? ' inherited' : '')}>
-      <div className="msg-role">{m.role === 'user' ? '🧑 You' : '🤖 Claude'}</div>
+      <div className="msg-role" title={time}>
+        {m.role === 'user' ? t.you : t.claude}
+        {m.ts && <span className="msg-time"> · {new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+      </div>
       <div className="msg-text">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+      </div>
+      <div className="msg-actions">
+        <button className="mini" onClick={doCopy} title={t.copy}>{copied ? t.copied : '⧉'}</button>
+        <button className="mini" onClick={() => onForkHere(m.uuid)} title={t.forkHere}>⑂</button>
       </div>
     </div>
   );
 }
 
-// Empty state: cây Lottie tự vẽ nhánh (loop)
-function EmptyState() {
+function EmptyState({ t }) {
   const ref = useRef(null);
   useEffect(() => {
     const anim = lottie.loadAnimation({
@@ -52,40 +166,24 @@ function EmptyState() {
     <div className="empty">
       <div className="empty-inner">
         <div className="empty-lottie" ref={ref} />
-        <div className="empty-title">Chọn một phiên để xem cây nhánh</div>
-        <div className="empty-sub">Fork từ bất kỳ phiên nào — phiên gốc luôn nguyên vẹn</div>
+        <div className="empty-title">{t.emptyTitle}</div>
+        <div className="empty-sub">{t.emptySub}</div>
       </div>
     </div>
   );
 }
 
-// Tự fit canvas khi cây đổi (đợi elk layout đo xong node mới fit).
-function AutoFit({ dep }) {
-  const { fitView } = useReactFlow();
-  const inited = useNodesInitialized();
-  useEffect(() => {
-    if (inited) fitView({ padding: 0.3, maxZoom: 1, duration: 250 });
-  }, [inited, dep, fitView]);
-  return null;
-}
-const PALETTE = ['#5b8def', '#e0598b', '#3fb68b', '#e0a23f', '#9b7ede', '#48b5c4', '#d96f5e', '#7aa93f'];
-const colorOf = (sid, map) => {
-  if (!map.has(sid)) map.set(sid, PALETTE[map.size % PALETTE.length]);
-  return map.get(sid);
-};
-const base = (p) => (p || '').split('/').filter(Boolean).pop() || p;
-function ago(ms) {
-  const s = (Date.now() - ms) / 1000;
-  if (s < 60) return 'vừa xong';
-  if (s < 3600) return Math.floor(s / 60) + ' phút';
-  if (s < 86400) return Math.floor(s / 3600) + ' giờ';
-  return Math.floor(s / 86400) + ' ngày';
-}
+const hashOf = (s) => (s ? `#/s/${s.project}/${s.sessionId}` : '#');
 
 export default function App() {
+  const [lang, setLang] = useState(() => localStorage.getItem('ct-lang') || 'vi');
+  const t = T[lang];
   const [forest, setForest] = useState([]);
+  const [error, setError] = useState(null);
   const [proj, setProj] = useState('all');
   const [query, setQuery] = useState('');
+  const [hits, setHits] = useState(null); // kết quả search nội dung
+  const [searching, setSearching] = useState(false);
   const [sel, setSel] = useState(null);
   const [conv, setConv] = useState(null);
   const [showInherited, setShowInherited] = useState(false);
@@ -100,7 +198,81 @@ export default function App() {
   const panelRef = useRef(null);
   const composerRef = useRef(null);
 
-  // sidebar items trượt vào khi load lần đầu
+  const setLanguage = (l) => {
+    setLang(l);
+    localStorage.setItem('ct-lang', l);
+  };
+
+  const loadForest = useCallback(async () => {
+    try {
+      const f = await getForest('all');
+      setError(null);
+      setForest(f.nodes || []);
+      return f.nodes || [];
+    } catch {
+      setError(true);
+      return [];
+    }
+  }, []);
+  useEffect(() => {
+    loadForest();
+  }, [loadForest]);
+
+  const byId = useMemo(() => new Map(forest.map((n) => [n.sessionId, n])), [forest]);
+  const childCount = useMemo(() => {
+    const c = {};
+    for (const n of forest) if (n.parent) c[n.parent] = (c[n.parent] || 0) + 1;
+    return c;
+  }, [forest]);
+
+  const selectSession = useCallback(async (node) => {
+    setSel(node);
+    setConv(null);
+    setShowInherited(false);
+    history.replaceState(null, '', hashOf(node));
+    const c = await getConversation(node.sessionId, node.project, node.parent);
+    setConv(c.messages || []);
+  }, []);
+  const closePanel = useCallback(() => {
+    setSel(null);
+    history.replaceState(null, '', '#');
+  }, []);
+
+  // deep-link: đọc hash khi forest sẵn sàng lần đầu (#/s/<project>/<sessionId>)
+  const hashRestored = useRef(false);
+  useEffect(() => {
+    if (hashRestored.current || !forest.length) return;
+    hashRestored.current = true;
+    const m = location.hash.match(/^#\/s\/([^/]+)\/([0-9a-f-]+)$/);
+    if (!m) return;
+    const node = forest.find((n) => n.project === m[1] && n.sessionId === m[2]);
+    if (node) selectSession(node);
+  }, [forest, selectSession]);
+
+  // search nội dung (debounce 350ms, từ 3 ký tự)
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) {
+      setHits(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const id = setTimeout(async () => {
+      try {
+        // proj là cwd -> đổi sang tên thư mục project mà backend hiểu
+        const scope = proj === 'all' ? 'all' : forest.find((s) => s.cwd === proj)?.project || 'all';
+        const r = await searchContent(q, scope);
+        setHits(r.results || []);
+      } catch {
+        setHits([]);
+      }
+      setSearching(false);
+    }, 350);
+    return () => clearTimeout(id);
+  }, [query, proj]);
+
+  // GSAP: sidebar trượt vào lần đầu
   useGSAP(
     () => {
       if (!forest.length) return;
@@ -109,8 +281,7 @@ export default function App() {
     { scope: appRef, dependencies: [forest.length > 0] },
   );
 
-  // node session pop-in stagger khi đổi họ fork (không replay khi kéo node).
-  // React Flow mount node sau 1 frame -> đợi double-rAF rồi animate (contextSafe để cleanup đúng).
+  // GSAP: node pop-in theo họ fork (đợi React Flow commit bằng double-rAF)
   const animKey = (sel?.root || '') + ':' + rfNodes.length;
   useGSAP(
     (_ctx, contextSafe) => {
@@ -128,7 +299,7 @@ export default function App() {
     { scope: canvasRef, dependencies: [animKey] },
   );
 
-  // panel trượt vào khi đổi phiên
+  // GSAP: panel + messages + composer
   useGSAP(
     () => {
       if (!panelRef.current) return;
@@ -136,8 +307,6 @@ export default function App() {
     },
     { dependencies: [sel?.sessionId] },
   );
-
-  // tin nhắn hội thoại stagger khi nạp xong (amount = tổng thời gian, không phình theo số message)
   useGSAP(
     () => {
       const msgs = panelRef.current?.querySelectorAll('.msg');
@@ -146,41 +315,6 @@ export default function App() {
     },
     { dependencies: [conv] },
   );
-
-  // hội thoại nạp xong -> cuộn xuống cuối (tin mới nhất), không bắt user kéo
-  useEffect(() => {
-    if (conv && convRef.current) convRef.current.scrollTop = convRef.current.scrollHeight;
-  }, [conv]);
-  // mở phần kế thừa -> cuộn lên đầu để đọc; ẩn -> về cuối
-  useEffect(() => {
-    if (convRef.current) convRef.current.scrollTop = showInherited ? 0 : convRef.current.scrollHeight;
-  }, [showInherited]);
-
-  const inheritedMsgs = useMemo(() => (conv || []).filter((m) => m.inherited), [conv]);
-  const ownMsgs = useMemo(() => (conv || []).filter((m) => !m.inherited), [conv]);
-
-  // panel mở/đóng làm đổi bề rộng vùng vẽ -> refit sau khi transition xong
-  const panelOpen = !!sel;
-  useEffect(() => {
-    const t = setTimeout(() => rfRef.current?.fitView({ padding: 0.3, maxZoom: 1, duration: 200 }), 240);
-    return () => clearTimeout(t);
-  }, [panelOpen]);
-
-  // ESC: đóng composer trước (nếu không đang chạy), rồi mới tới panel
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      setComposer((c) => {
-        if (c) return c.busy ? c : null;
-        setSel(null);
-        return c;
-      });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // composer scale-in
   useGSAP(
     () => {
       if (!composerRef.current) return;
@@ -188,30 +322,6 @@ export default function App() {
     },
     { dependencies: [!!composer] },
   );
-
-  const loadForest = useCallback(async () => {
-    const f = await getForest('all');
-    setForest(f.nodes || []);
-    return f.nodes || [];
-  }, []);
-  useEffect(() => {
-    loadForest();
-  }, [loadForest]);
-
-  const byId = useMemo(() => new Map(forest.map((n) => [n.sessionId, n])), [forest]);
-  const childCount = useMemo(() => {
-    const c = {};
-    for (const n of forest) if (n.parent) c[n.parent] = (c[n.parent] || 0) + 1;
-    return c;
-  }, [forest]);
-
-  const selectSession = useCallback(async (node) => {
-    setSel(node);
-    setConv(null);
-    setShowInherited(false);
-    const c = await getConversation(node.sessionId, node.project, node.parent);
-    setConv(c.messages || []);
-  }, []);
 
   // layout HỌ fork của phiên đang chọn
   useEffect(() => {
@@ -229,6 +339,7 @@ export default function App() {
       data: {
         title: n.title,
         turns: n.turns,
+        turnsLabel: t.turns(n.turns) + (childCount[n.sessionId] ? ` · ⑂ ${childCount[n.sessionId]}` : ''),
         forks: childCount[n.sessionId] || 0,
         isRoot: !n.parent,
         color: colorOf(n.root, colorMap.current),
@@ -242,7 +353,7 @@ export default function App() {
       setRfEdges(edges);
       setTimeout(() => rfRef.current?.fitView({ padding: 0.3, maxZoom: 1, duration: 250 }), 130);
     });
-  }, [forest, sel?.root, sel?.sessionId, childCount, setRfNodes, setRfEdges]);
+  }, [forest, sel?.root, sel?.sessionId, childCount, t, setRfNodes, setRfEdges]);
 
   const onNodeClick = useCallback(
     (_e, node) => {
@@ -252,12 +363,46 @@ export default function App() {
     [byId, selectSession],
   );
 
+  // cuộn hội thoại
+  useEffect(() => {
+    if (conv && convRef.current) convRef.current.scrollTop = convRef.current.scrollHeight;
+  }, [conv]);
+  useEffect(() => {
+    if (convRef.current) convRef.current.scrollTop = showInherited ? 0 : convRef.current.scrollHeight;
+  }, [showInherited]);
+
+  const inheritedMsgs = useMemo(() => (conv || []).filter((m) => m.inherited), [conv]);
+  const ownMsgs = useMemo(() => (conv || []).filter((m) => !m.inherited), [conv]);
+
+  // panel mở/đóng đổi bề rộng vùng vẽ -> refit
+  const panelOpen = !!sel;
+  useEffect(() => {
+    const id = setTimeout(() => rfRef.current?.fitView({ padding: 0.3, maxZoom: 1, duration: 200 }), 240);
+    return () => clearTimeout(id);
+  }, [panelOpen]);
+
+  // ESC: composer trước (nếu rảnh), rồi panel
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      setComposer((c) => {
+        if (c) return c.busy ? c : null;
+        closePanel();
+        return c;
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closePanel]);
+
+  const openFork = (anchorUuid) => setComposer({ mode: 'fork', anchor: anchorUuid || null, text: '' });
+
   const send = useCallback(async () => {
     if (!composer?.text.trim() || composer.busy) return;
     const path = composer.mode === 'fork' ? 'fork' : 'chat';
     const body =
       composer.mode === 'fork'
-        ? { uuid: sel.leaf, project: sel.project, cwd: sel.cwd }
+        ? { uuid: composer.anchor || sel.leaf, project: sel.project, cwd: sel.cwd, sessionId: sel.sessionId }
         : { sessionId: sel.sessionId, cwd: sel.cwd };
     body.prompt = composer.text;
     setComposer((c) => ({ ...c, busy: true, live: '' }));
@@ -273,40 +418,57 @@ export default function App() {
   }, [composer, sel, loadForest, selectSession]);
 
   const doRename = async () => {
-    const name = prompt('Tên phiên (để trống = quay về tên tự động):', sel.title);
-    if (name === null) return; // Cancel = không đổi gì
-    if (name.trim() === '' && !confirm(`Xóa tên tùy chỉnh "${sel.title}" và quay về tên tự động?`)) return;
+    const name = prompt(t.renamePrompt, sel.title);
+    if (name === null) return;
+    if (name.trim() === '' && !confirm(t.renameConfirm(sel.title))) return;
     await rename(sel.sessionId, name.trim());
     const nodes = await loadForest();
     setSel(nodes.find((n) => n.sessionId === sel.sessionId) || sel);
   };
   const doDelete = async () => {
-    if (!confirm('Chuyển phiên "' + sel.title + '" vào thùng rác?')) return;
+    if (!confirm(t.deleteConfirm(sel.title))) return;
     await delSession(sel.sessionId, sel.project);
-    setSel(null);
+    closePanel();
     setConv(null);
     loadForest();
   };
 
   const cwds = useMemo(() => [...new Set(forest.map((s) => s.cwd))].filter(Boolean), [forest]);
-  const shown = forest
-    .filter((s) => proj === 'all' || s.cwd === proj)
+  const inScope = forest.filter((s) => proj === 'all' || s.cwd === proj);
+  const junk = inScope.filter((s) => s.title.trim() === '.').length;
+  const shown = inScope
+    .filter((s) => s.title.trim() !== '.')
     .filter((s) => !query || s.title.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => b.mtime - a.mtime);
+
+  if (error)
+    return (
+      <div className="loading">
+        <div className="err-box">
+          <div>⚠ {t.backendDown}</div>
+          <button className="btn primary" onClick={loadForest}>{t.retry}</button>
+        </div>
+      </div>
+    );
 
   return (
     <div className="app" ref={appRef}>
       <aside className="sidebar">
-        <div className="brand">🌳 Claude Tree</div>
+        <div className="brand-row">
+          <div className="brand">🌳 Claude Tree</div>
+          <button className="lang" onClick={() => setLanguage(lang === 'vi' ? 'en' : 'vi')}>
+            {lang === 'vi' ? 'EN' : 'VI'}
+          </button>
+        </div>
         <select className="search" value={proj} onChange={(e) => setProj(e.target.value)}>
-          <option value="all">Tất cả project ({forest.length})</option>
+          <option value="all">{t.allProjects(forest.length)}</option>
           {cwds.map((c) => (
             <option key={c} value={c}>
               {base(c)} ({forest.filter((s) => s.cwd === c).length})
             </option>
           ))}
         </select>
-        <input className="search" placeholder="Tìm phiên…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input className="search" placeholder={t.searchPh} value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="root-list">
           {shown.map((s) => (
             <button
@@ -322,37 +484,63 @@ export default function App() {
                   {s.title}
                 </span>
                 <span className="root-sub">
-                  {base(s.cwd)} · {ago(s.mtime)}
-                  {childCount[s.sessionId] ? ` · ${childCount[s.sessionId]} nhánh` : ''}
+                  {base(s.cwd)} · {ago(s.mtime, t)}
+                  {childCount[s.sessionId] ? ` · ${t.branches(childCount[s.sessionId])}` : ''}
                 </span>
               </span>
             </button>
           ))}
+          {shown.length === 0 && !hits && <div className="muted pad">{t.noResult}</div>}
+          {(searching || hits) && (
+            <div className="hits">
+              <div className="hits-head">{searching ? t.searching : t.contentHits(hits.length)}</div>
+              {!searching &&
+                hits.map((h) => (
+                  <button
+                    key={h.sessionId}
+                    className="root-item hit"
+                    onClick={() => {
+                      const node = byId.get(h.sessionId);
+                      if (node) selectSession(node);
+                    }}
+                  >
+                    <span className="root-text">
+                      <span className="root-label">{h.title}</span>
+                      <span className="root-sub">{base(h.cwd)}</span>
+                      {h.matches.slice(0, 2).map((m) => (
+                        <span key={m.uuid} className="hit-snippet">
+                          {m.snippet}
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
         </div>
-        <div className="legend">{shown.length} phiên · 🌳 gốc · ⑂ nhánh fork</div>
+        <div className="legend">{t.legend(shown.length, junk)}</div>
       </aside>
 
       <main className="canvas" ref={canvasRef}>
-        {!sel && <EmptyState />}
+        {!sel && <EmptyState t={t} />}
         <div className={'rf-wrap' + (sel ? ' with-panel' : '')}>
-        <ReactFlow
-          nodes={rfNodes}
-          edges={rfEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeClick={onNodeClick}
-          onInit={(inst) => (rfRef.current = inst)}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
-          minZoom={0.2}
-          proOptions={{ hideAttribution: true }}
-        >
-          <AutoFit dep={(sel?.root || '') + ':' + rfNodes.length} />
-          <Background gap={22} color="#222a3a" />
-          <MiniMap pannable zoomable nodeColor={(n) => n.data?.color || '#888'} maskColor="rgba(10,14,22,.7)" />
-          <Controls />
-        </ReactFlow>
+          <ReactFlow
+            nodes={rfNodes}
+            edges={rfEdges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
+            onInit={(inst) => (rfRef.current = inst)}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+            minZoom={0.2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background gap={22} color="#222a3a" />
+            <MiniMap pannable zoomable nodeColor={(n) => n.data?.color || '#888'} maskColor="rgba(10,14,22,.7)" />
+            <Controls />
+          </ReactFlow>
         </div>
       </main>
 
@@ -360,27 +548,30 @@ export default function App() {
         <aside className="panel" ref={panelRef}>
           <div className="panel-head">
             <span className="panel-title">{sel.parent ? '⑂ ' : '🌳 '}{sel.title}</span>
-            <button className="x" onClick={() => setSel(null)}>✕</button>
+            <button className="x" onClick={closePanel}>✕</button>
           </div>
           <div className="conv" ref={convRef}>
-            {conv === null && <div className="muted">Đang tải hội thoại…</div>}
+            {conv === null && <div className="muted">{t.loadingConv}</div>}
             {conv && inheritedMsgs.length > 0 && (
               <button className="inherit-toggle" onClick={() => setShowInherited((v) => !v)}>
-                ⑂ {inheritedMsgs.length} tin nhắn kế thừa từ phiên cha — {showInherited ? 'ẩn đi' : 'bấm để xem'}
+                {t.inherited(inheritedMsgs.length, showInherited)}
               </button>
             )}
-            {conv && showInherited && inheritedMsgs.map((m) => <Msg key={m.uuid} m={m} inherited />)}
-            {conv && ownMsgs.map((m) => <Msg key={m.uuid} m={m} />)}
-            {conv && conv.length === 0 && <div className="muted">(phiên trống)</div>}
+            {conv && showInherited && inheritedMsgs.map((m) => <Msg key={m.uuid} m={m} inherited t={t} onForkHere={openFork} />)}
+            {conv && ownMsgs.map((m) => <Msg key={m.uuid} m={m} t={t} onForkHere={openFork} />)}
+            {conv && conv.length === 0 && <div className="muted">{t.emptyConv}</div>}
           </div>
           <div className="panel-actions">
-            <button className="btn primary" onClick={() => setComposer({ mode: 'fork', text: '' })}>
-              ⑂ Fork nhánh mới
-            </button>
-            <button className="btn" onClick={() => setComposer({ mode: 'continue', text: '' })}>↳ Chat tiếp</button>
-            <button className="btn" onClick={doRename}>✎ Đặt tên</button>
-            <a className="btn" href={exportUrl(sel.sessionId, sel.project)} target="_blank" rel="noreferrer">⤓ Export</a>
-            <button className="btn danger" onClick={doDelete}>🗑 Xóa</button>
+            <button className="btn primary" onClick={() => openFork(null)}>{t.forkBtn}</button>
+            <button className="btn" onClick={() => setComposer({ mode: 'continue', text: '' })}>{t.continueBtn}</button>
+            <button className="btn" onClick={doRename}>{t.renameBtn}</button>
+            <a className="btn" href={exportUrl(sel.sessionId, sel.project, sel.title)} target="_blank" rel="noreferrer">
+              {t.exportMd}
+            </a>
+            <a className="btn" href={exportUrl(sel.sessionId, sel.project, sel.title, 'json')} target="_blank" rel="noreferrer">
+              {t.exportJson}
+            </a>
+            <button className="btn danger" onClick={doDelete}>{t.deleteBtn}</button>
           </div>
         </aside>
       )}
@@ -389,12 +580,21 @@ export default function App() {
         <div className="composer-overlay" onClick={(e) => e.target === e.currentTarget && !composer.busy && setComposer(null)}>
           <div className="composer" ref={composerRef}>
             <div className="composer-head">
-              {composer.mode === 'fork' ? `⑂ Fork nhánh mới từ "${sel.title}"` : `↳ Chat tiếp trong "${sel.title}"`}
+              {composer.mode === 'fork'
+                ? composer.anchor
+                  ? t.composerForkMsg
+                  : t.composerFork(sel.title)
+                : t.composerCont(sel.title)}
             </div>
-            {composer.busy && <div className="composer-live">{composer.live || '…'}<span className="cursor">▌</span></div>}
+            {composer.busy && (
+              <div className="composer-live">
+                {composer.live || t.thinking}
+                <span className="cursor">▌</span>
+              </div>
+            )}
             <textarea
               autoFocus
-              placeholder="Nhập câu hỏi…"
+              placeholder={t.composerPh}
               value={composer.text}
               disabled={composer.busy}
               onChange={(e) => setComposer((c) => ({ ...c, text: e.target.value }))}
@@ -403,11 +603,11 @@ export default function App() {
               }}
             />
             <div className="composer-foot">
-              <span className="hint">⌘/Ctrl + Enter để gửi</span>
+              <span className="hint">{t.hint}</span>
               <div>
-                <button className="btn" disabled={composer.busy} onClick={() => setComposer(null)}>Hủy</button>
+                <button className="btn" disabled={composer.busy} onClick={() => setComposer(null)}>{t.cancel}</button>
                 <button className="btn primary" disabled={composer.busy} onClick={send}>
-                  {composer.busy ? 'Đang chạy…' : 'Gửi'}
+                  {composer.busy ? t.running : t.send}
                 </button>
               </div>
             </div>

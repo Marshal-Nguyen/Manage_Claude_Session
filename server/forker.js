@@ -8,9 +8,20 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_PROJECT_DIR } from './treeBuilder.js';
 
-// Tìm file (và các dòng) chứa message có .uuid === uuid
-function findSession(dir, uuid) {
-  for (const f of readdirSync(dir).filter((x) => x.endsWith('.jsonl'))) {
+// Tìm file (và các dòng) chứa message có .uuid === uuid.
+// preferSession: thử file phiên đó TRƯỚC — message kế thừa nằm ở cả file cha
+// lẫn file con, fork phải cắt từ phiên user đang xem.
+function findSession(dir, uuid, preferSession) {
+  const files = readdirSync(dir).filter((x) => x.endsWith('.jsonl'));
+  if (preferSession) {
+    const pf = `${preferSession}.jsonl`;
+    const i = files.indexOf(pf);
+    if (i > 0) {
+      files.splice(i, 1);
+      files.unshift(pf);
+    }
+  }
+  for (const f of files) {
     const lines = readFileSync(join(dir, f), 'utf8').split('\n');
     for (const line of lines) {
       if (!line.includes(uuid)) continue;
@@ -24,8 +35,8 @@ function findSession(dir, uuid) {
   return null;
 }
 
-export function forkAt(uuid, dir = DEFAULT_PROJECT_DIR) {
-  const found = findSession(dir, uuid);
+export function forkAt(uuid, dir = DEFAULT_PROJECT_DIR, preferSession) {
+  const found = findSession(dir, uuid, preferSession);
   if (!found) throw new Error(`Không tìm thấy message ${uuid}`);
   const { lines } = found;
 

@@ -1,26 +1,36 @@
 export const getForest = (scope = 'all') =>
   fetch('/api/forest?project=' + encodeURIComponent(scope)).then((r) => r.json());
+
 export const getConversation = (id, project, parent) => {
-  const q = new URLSearchParams();
-  if (project) q.set('project', project);
+  const q = new URLSearchParams({ project });
   if (parent) q.set('parent', parent);
-  const qs = q.toString();
-  return fetch('/api/conversation/' + id + (qs ? '?' + qs : '')).then((r) => r.json());
+  return fetch('/api/conversation/' + id + '?' + q).then((r) => r.json());
 };
+
+export const searchContent = (q, scope = 'all') =>
+  fetch('/api/search-content?q=' + encodeURIComponent(q) + '&project=' + encodeURIComponent(scope)).then((r) =>
+    r.json(),
+  );
+
 export const rename = (sessionId, name) =>
   fetch('/api/rename', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, name }),
   }).then((r) => r.json());
-export const delSession = (id, project) =>
-  fetch('/api/session/' + id + (project ? '?project=' + encodeURIComponent(project) : ''), {
-    method: 'DELETE',
-  }).then((r) => r.json());
-export const exportUrl = (id, project) =>
-  '/api/export/' + id + (project ? '?project=' + encodeURIComponent(project) : '');
 
-// SSE over fetch POST. path = 'chat' | 'fork'. body có thể kèm project/cwd.
+export const delSession = (id, project) =>
+  fetch('/api/session/' + id + '?project=' + encodeURIComponent(project), { method: 'DELETE' }).then((r) => r.json());
+
+export const exportUrl = (id, project, name, format) => {
+  const q = new URLSearchParams({ project });
+  if (name) q.set('name', name);
+  if (format === 'json') q.set('format', 'json');
+  else q.set('download', '1');
+  return '/api/export/' + id + '?' + q;
+};
+
+// SSE over fetch POST. path = 'chat' | 'fork'.
 export async function stream(path, body, onEvent) {
   const res = await fetch('/api/' + path, {
     method: 'POST',

@@ -9,7 +9,7 @@
 // - GET  /api/search?q=            tìm trong các lượt
 import express from 'express';
 import cors from 'cors';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, readdirSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +27,15 @@ import { forkAt } from './forker.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIR = DEFAULT_PROJECT_DIR;
-const projDir = (p) => (p ? join(PROJECTS_ROOT, p) : DIR);
+// project bắt buộc + chống path traversal (tên project không được chứa / hay ..)
+const projDir = (p) => {
+  if (!p || p.includes('/') || p.includes('..')) {
+    const err = new Error('project param required');
+    err.status = 400;
+    throw err;
+  }
+  return join(PROJECTS_ROOT, p);
+};
 const NAMES = join(__dirname, 'names.json');
 const TRASH = join(__dirname, '.trash');
 
@@ -120,16 +128,26 @@ function runClaude(res, { resumeId, prompt, cwd }) {
     }
   });
   child.stderr.on('data', (d) => (err += d.toString()));
-  child.on('close', (code) => {
-    send('done', { sessionId: session, code, error: code ? err.slice(0, 600) : undefined });
+  let ended = false;
+  const finish = (payload) => {
+    if (ended) return;
+    ended = true;
+    send('done', payload);
     res.end();
-  });
+  };
+  child.on('error', (e) => finish({ sessionId: session, code: -1, error: 'Không chạy được claude CLI: ' + e.message }));
+  child.on('close', (code) => finish({ sessionId: session, code, error: code ? err.slice(0, 600) : undefined }));
   res.on('close', () => child.kill());
 }
 
 const app = express();
-app.use(cors());
+// API đọc được toàn bộ lịch sử chat -> chỉ cho origin localhost
+app.use(cors({ origin: [/^https?:\/\/localhost(:\d+)?$/, /^https?:\/\/127\.0\.0\.1(:\d+)?$/] }));
 app.use(express.json({ limit: '1mb' }));
+
+// Serve bản build production nếu có (npm run build trong web/) -> chạy 1 process duy nhất
+const DIST = join(__dirname, '../web/dist');
+if (existsSync(DIST)) app.use(express.static(DIST));
 
 // Danh sách phiên (mọi project hoặc 1 project), tên đã ghép custom-name sidecar.
 app.get('/api/sessions', (req, res) => {
@@ -189,6 +207,7 @@ app.get('/api/conversation/:id', (req, res) => {
           uuid: e.uuid,
           role: e.type,
           text,
+          ts: e.timestamp || null,
           inherited: parentUuids ? parentUuids.has(e.uuid) : false,
         });
     }
@@ -214,11 +233,11 @@ app.post('/api/chat', (req, res) => {
 });
 
 app.post('/api/fork', (req, res) => {
-  const { uuid, prompt, project, cwd } = req.body || {};
+  const { uuid, prompt, project, cwd, sessionId } = req.body || {};
   if (!uuid || !prompt) return res.status(400).json({ error: 'uuid & prompt required' });
   let forked;
   try {
-    forked = forkAt(uuid, projDir(project));
+    forked = forkAt(uuid, projDir(project), sessionId);
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -250,7 +269,14 @@ app.delete('/api/session/:id', (req, res) => {
 app.get('/api/export/:id', (req, res) => {
   const f = join(projDir(req.query.project), `${req.params.id}.jsonl`);
   if (!existsSync(f)) return res.status(404).json({ error: 'not found' });
-  const out = [`# Session ${req.params.id}\n`];
+  const title = (req.query.name || `session-${req.params.id.slice(0, 8)}`).toString();
+  const fname = title.replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, 80) || 'session';
+  // header chỉ nhận latin-1 -> ASCII fallback + filename* UTF-8 (RFC 5987)
+  const asciiName = fname.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '_');
+  const disposition = (ext) =>
+    `attachment; filename="${asciiName}.${ext}"; filename*=UTF-8''${encodeURIComponent(fname)}.${ext}`;
+  const wantJson = req.query.format === 'json';
+  const items = [];
   for (const line of readFileSync(f, 'utf8').split('\n')) {
     if (!line.trim()) continue;
     let e;
@@ -259,13 +285,84 @@ app.get('/api/export/:id', (req, res) => {
     } catch {
       continue;
     }
-    if ((e.type === 'user' || e.type === 'assistant') && e.message) {
+    if ((e.type === 'user' || e.type === 'assistant') && e.message && e.isSidechain !== true) {
       const t = fullText(e.message).trim();
-      if (t) out.push(`\n## ${e.type === 'user' ? '🧑 User' : '🤖 Claude'}\n\n${t}`);
+      if (t) items.push({ role: e.type, ts: e.timestamp || null, text: t });
     }
   }
+  if (wantJson) {
+    res.set('Content-Disposition', disposition('json'));
+    return res.json({ sessionId: req.params.id, title, messages: items });
+  }
+  const out = [`# ${title}\n`];
+  for (const m of items) out.push(`\n## ${m.role === 'user' ? '🧑 User' : '🤖 Claude'}\n\n${m.text}`);
   res.set('Content-Type', 'text/markdown; charset=utf-8');
+  if (req.query.download) res.set('Content-Disposition', disposition('md'));
   res.send(out.join('\n'));
+});
+
+// Cache nội dung file cho full-text search (key mtime -> chỉ đọc lại file đã đổi).
+// ~vài chục MB RAM cho kho phiên lớn — chấp nhận được cho tool local.
+const ftCache = new Map(); // path -> { mtime, raw, lower }
+function cachedRead(path, mtime) {
+  const hit = ftCache.get(path);
+  if (hit && hit.mtime === mtime) return hit;
+  let raw;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+  const entry = { mtime, raw, lower: raw.toLowerCase() };
+  ftCache.set(path, entry);
+  return entry;
+}
+
+// Full-text search trong NỘI DUNG hội thoại của mọi phiên (mọi project hoặc 1 project)
+app.get('/api/search-content', (req, res) => {
+  const q = (req.query.q || '').toString().toLowerCase().trim();
+  if (q.length < 2) return res.json({ results: [] });
+  const scope = req.query.project || 'all';
+  const names = loadNames();
+  const sessions = listSessions({ scope });
+  const results = [];
+  for (const s of sessions) {
+    const path = join(PROJECTS_ROOT, s.project, s.sessionId + '.jsonl');
+    const entry = cachedRead(path, s.mtime);
+    if (!entry) continue;
+    if (!entry.lower.includes(q)) continue; // lọc thô nhanh trước khi parse
+    const matches = [];
+    for (const line of entry.raw.split('\n')) {
+      if (matches.length >= 3) break;
+      if (!line.trim()) continue;
+      let e;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if ((e.type !== 'user' && e.type !== 'assistant') || !e.message || e.isSidechain === true) continue;
+      const t = realText(e.message);
+      const i = t.toLowerCase().indexOf(q);
+      if (i < 0) continue;
+      const from = Math.max(0, i - 40);
+      matches.push({
+        uuid: e.uuid,
+        role: e.type,
+        snippet: (from > 0 ? '…' : '') + t.slice(from, i + q.length + 60).replace(/\s+/g, ' '),
+      });
+    }
+    if (matches.length)
+      results.push({
+        sessionId: s.sessionId,
+        project: s.project,
+        title: names[s.sessionId] || s.title,
+        cwd: s.cwd,
+        matches,
+      });
+    if (results.length >= 30) break;
+  }
+  res.json({ results });
 });
 
 app.get('/api/search', (req, res) => {
@@ -279,5 +376,21 @@ app.get('/api/search', (req, res) => {
   res.json({ matches });
 });
 
+// projDir() throw có err.status -> trả lỗi gọn thay vì stack 500
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  res.status(err.status || 500).json({ error: err.message });
+});
+
 const PORT = process.env.PORT || 4799;
-app.listen(PORT, () => console.log(`claude-tree API on :${PORT}`));
+// bind localhost-only: API đọc được toàn bộ lịch sử chat, không mở ra LAN
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`claude-tree chạy tại http://localhost:${PORT}`);
+  const probe = spawnSync('claude', ['--version'], { encoding: 'utf8' });
+  if (probe.error) {
+    console.warn('⚠ Không tìm thấy `claude` CLI trong PATH — xem/fork cây vẫn chạy, nhưng Chat/Fork sẽ lỗi.');
+    console.warn('  Cài đặt: https://docs.anthropic.com/en/docs/claude-code');
+  } else {
+    console.log(`claude CLI: ${probe.stdout.trim()}`);
+  }
+});

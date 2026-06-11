@@ -64,6 +64,19 @@ body {
   min-height: 0;
   z-index: 2;
 }
+.brand-row { display: flex; align-items: center; justify-content: space-between; }
+.lang {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.lang:hover { color: var(--text); border-color: var(--accent); }
 .brand {
   font-size: 16px;
   font-weight: 800;
@@ -114,6 +127,16 @@ select.search { cursor: pointer; appearance: none; }
 .root-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .root-sub { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .legend { font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; line-height: 1.7; }
+.pad { padding: 10px; }
+
+/* kết quả search trong nội dung */
+.hits { border-top: 1px dashed var(--line-bright); margin-top: 8px; padding-top: 8px; }
+.hits-head { font-size: 10.5px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 10px 7px; }
+.root-item.hit { align-items: flex-start; }
+.hit-snippet { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: italic; opacity: 0.85; }
+
+/* lỗi backend */
+.err-box { display: flex; flex-direction: column; gap: 14px; align-items: center; font-size: 13.5px; color: var(--text); }
 
 /* ── canvas ── */
 .canvas { position: relative; min-height: 0; overflow: hidden; z-index: 1; }
@@ -230,9 +253,31 @@ select.search { cursor: pointer; appearance: none; }
 }
 .inherit-toggle:hover { background: rgba(124, 140, 250, 0.13); color: var(--text); }
 .msg.inherited { opacity: 0.6; }
-.msg { max-width: 92%; }
+.msg { max-width: 92%; position: relative; }
 .msg.user { align-self: flex-end; }
 .msg.assistant { align-self: flex-start; }
+.msg-time { font-weight: 400; opacity: 0.75; text-transform: none; letter-spacing: 0; }
+/* hover actions: copy + fork-từ-tin-nhắn */
+.msg-actions { position: absolute; top: 18px; display: none; gap: 4px; }
+.msg.assistant .msg-actions { right: -4px; transform: translateX(100%); }
+.msg.user .msg-actions { left: -4px; transform: translateX(-100%); }
+.msg:hover .msg-actions { display: flex; }
+.mini {
+  background: var(--glass-strong);
+  border: 1px solid var(--line-bright);
+  color: var(--muted);
+  font-size: 11px;
+  min-width: 26px;
+  padding: 0 6px;
+  white-space: nowrap;
+  height: 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color 0.15s, border-color 0.15s;
+}
+.mini:hover { color: var(--text); border-color: var(--accent); }
 .msg-role { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .msg.user .msg-role { text-align: right; }
 .msg-text { line-height: 1.55; font-size: 12.5px; padding: 10px 13px; border-radius: 14px; overflow-wrap: break-word; }

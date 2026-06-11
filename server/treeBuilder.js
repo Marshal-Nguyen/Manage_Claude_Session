@@ -10,7 +10,9 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-export const PROJECTS_ROOT = join(homedir(), '.claude/projects');
+// Cho phép trỏ kho phiên khác qua env (mặc định: chuẩn Claude Code)
+export const PROJECTS_ROOT = process.env.CLAUDE_PROJECTS_DIR || join(homedir(), '.claude/projects');
+// Chỉ dùng cho CLI debug của treeBuilder; mọi API endpoint yêu cầu ?project tường minh
 export const DEFAULT_PROJECT_DIR = join(PROJECTS_ROOT, '-home-giang-nguyen');
 
 // Danh sách PHIÊN trung thực như `claude --resume`: 1 dòng = 1 file .jsonl
