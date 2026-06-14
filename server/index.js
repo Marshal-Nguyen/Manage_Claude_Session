@@ -181,7 +181,8 @@ app.get('/api/sessions', (req, res) => {
 app.get('/api/forest', (req, res) => {
   const names = loadNames();
   const { nodes } = buildForest({ scope: req.query.project || 'all' });
-  res.json({ nodes: nodes.map((n) => ({ ...n, title: names[n.sessionId] || n.title })) });
+  // projectsRoot để UI báo rõ "tìm ở đâu" khi trống
+  res.json({ projectsRoot: PROJECTS_ROOT, nodes: nodes.map((n) => ({ ...n, title: names[n.sessionId] || n.title })) });
 });
 
 // Hội thoại tuyến tính của 1 phiên (cho panel xem nội dung).
@@ -443,6 +444,16 @@ const server = app.listen(PORT, '127.0.0.1', () => {
   } else {
     console.log(`   claude CLI: ${probe.stdout.trim()}`);
   }
+  // Chẩn đoán: tìm thấy bao nhiêu phiên + tìm ở đâu (giúp gỡ lỗi "mở ra trống")
+  let count = 0;
+  try {
+    count = listSessions({ scope: 'all' }).length;
+  } catch {
+    /* ignore */
+  }
+  console.log(`   ${count} session(s) found in ${PROJECTS_ROOT}`);
+  if (count === 0)
+    console.log('   (empty? open Claude Code at least once, or set CLAUDE_PROJECTS_DIR to your sessions folder)');
 });
 server.on('error', (e) => {
   if (e.code === 'EADDRINUSE') {

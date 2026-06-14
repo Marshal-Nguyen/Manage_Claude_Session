@@ -128,6 +128,8 @@ select.search { cursor: pointer; appearance: none; }
 .root-sub { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .legend { font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; line-height: 1.7; }
 .pad { padding: 10px; }
+.nosess { white-space: pre-wrap; line-height: 1.55; font-size: 11.5px; }
+.nosess code, .nosess { word-break: break-word; }
 
 /* kết quả search trong nội dung */
 .hits { border-top: 1px dashed var(--line-bright); margin-top: 8px; padding-top: 8px; }

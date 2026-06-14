@@ -47,6 +47,8 @@ const T = {
     contentHits: (n) => `Trong nội dung hội thoại (${n})`,
     searching: 'Đang tìm trong nội dung…',
     noResult: 'Không tìm thấy phiên nào',
+    noSessions: (p) =>
+      `Chưa thấy phiên chat nào.\nĐã tìm trong: ${p}\nHãy dùng Claude Code ít nhất 1 lần, hoặc đặt biến CLAUDE_PROJECTS_DIR trỏ tới thư mục phiên của bạn.`,
     legend: (n, hidden) => `${n} phiên · 🌳 gốc · ⑂ fork${hidden ? ` · ${hidden} phiên rác đã ẩn` : ''}`,
     branches: (n) => `${n} nhánh`,
     emptyTitle: 'Chọn một phiên để xem cây nhánh',
@@ -91,6 +93,8 @@ const T = {
     contentHits: (n) => `In conversation content (${n})`,
     searching: 'Searching content…',
     noResult: 'No sessions found',
+    noSessions: (p) =>
+      `No chat sessions found.\nLooked in: ${p}\nUse Claude Code at least once, or set CLAUDE_PROJECTS_DIR to your sessions folder.`,
     legend: (n, hidden) => `${n} sessions · 🌳 root · ⑂ fork${hidden ? ` · ${hidden} junk hidden` : ''}`,
     branches: (n) => `${n} branches`,
     emptyTitle: 'Pick a session to view its branch tree',
@@ -204,6 +208,7 @@ export default function App() {
   const isMobile = winW <= 820;
   const [sideOpen, setSideOpen] = useState(false);
   const [forest, setForest] = useState([]);
+  const [projectsRoot, setProjectsRoot] = useState('');
   const [error, setError] = useState(null);
   const [proj, setProj] = useState('all');
   const [query, setQuery] = useState('');
@@ -262,6 +267,7 @@ export default function App() {
       const f = await getForest('all');
       setError(null);
       setForest(f.nodes || []);
+      if (f.projectsRoot) setProjectsRoot(f.projectsRoot);
       return f.nodes || [];
     } catch {
       setError(true);
@@ -619,7 +625,8 @@ export default function App() {
               </span>
             </button>
           ))}
-          {shown.length === 0 && !hits && <div className="muted pad">{t.noResult}</div>}
+          {forest.length === 0 && <div className="muted pad nosess">{t.noSessions(projectsRoot)}</div>}
+          {forest.length > 0 && shown.length === 0 && !hits && <div className="muted pad">{t.noResult}</div>}
           {(searching || hits) && (
             <div className="hits">
               <div className="hits-head">{searching ? t.searching : t.contentHits(hits.length)}</div>

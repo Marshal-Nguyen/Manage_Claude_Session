@@ -19,12 +19,27 @@ export const DEFAULT_PROJECT_DIR = join(PROJECTS_ROOT, '-home-giang-nguyen');
 // tầng trên cùng (subagents/workflows nằm trong subdir nên tự bị loại).
 // Tên ưu tiên: aiTitle (entry type "ai-title") -> câu user đầu -> id. Sắp mới nhất.
 export function listSessions({ scope = 'all' } = {}) {
-  const projects =
-    scope === 'all'
-      ? readdirSync(PROJECTS_ROOT, { withFileTypes: true })
-          .filter((d) => d.isDirectory() && d.name.startsWith('-'))
-          .map((d) => d.name)
-      : [scope];
+  // Thư mục project = thư mục chứa file .jsonl. KHÔNG lọc theo tên bắt đầu '-'
+  // (chỉ đúng Linux/macOS; trên Windows thư mục là "C--Users-..." -> bị loại nhầm).
+  const hasJsonl = (name) => {
+    try {
+      return readdirSync(join(PROJECTS_ROOT, name)).some((f) => f.endsWith('.jsonl'));
+    } catch {
+      return false;
+    }
+  };
+  let projects;
+  try {
+    projects =
+      scope === 'all'
+        ? readdirSync(PROJECTS_ROOT, { withFileTypes: true })
+            .filter((d) => d.isDirectory())
+            .map((d) => d.name)
+            .filter(hasJsonl)
+        : [scope];
+  } catch {
+    projects = []; // PROJECTS_ROOT không tồn tại (chưa dùng Claude Code bao giờ)
+  }
   const out = [];
   for (const proj of projects) {
     const dir = join(PROJECTS_ROOT, proj);
