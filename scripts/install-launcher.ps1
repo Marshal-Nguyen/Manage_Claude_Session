@@ -4,14 +4,9 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $target = Join-Path $root 'scripts\claude-tree-app.cmd'
 
-# Icon: dùng chrome.exe nếu có (Windows shortcut cần .ico/.exe, không nhận .svg)
-$icon = $null
-foreach ($p in @(
-    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-    "$env:LocalAppData\Google\Chrome\Application\chrome.exe")) {
-  if (Test-Path $p) { $icon = $p; break }
-}
+# Icon cây-fork riêng của app (.ico tạo sẵn trong docs/)
+$icon = Join-Path $root 'docs\icon.ico'
+if (-not (Test-Path $icon)) { $icon = $null }
 
 $ws = New-Object -ComObject WScript.Shell
 $locations = @(
