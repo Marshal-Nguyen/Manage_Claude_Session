@@ -22,9 +22,13 @@ npm start        # → http://localhost:4799
 
 That's it. Your sessions appear automatically.
 
-> **Optional — desktop launcher (Linux):** run `bash scripts/install-launcher.sh` to add a
-> clickable **Claude Tree** app to your menu. One click starts the server and opens the app
-> in its own window.
+> **Optional — click-to-launch app** (starts the server + opens the app in its own window):
+> - **Linux:** `bash scripts/install-launcher.sh` → adds a "Claude Tree" icon to your app menu
+> - **macOS:** double-click `scripts/claude-tree-app.command`
+> - **Windows:** double-click `scripts\claude-tree-app.cmd`, or run
+>   `powershell -ExecutionPolicy Bypass -File scripts\install-launcher.ps1` for Desktop + Start Menu shortcuts
+>
+> *Linux launcher is tested; macOS/Windows launchers are written but community-testing welcome.*
 
 ## What you can do
 
@@ -100,9 +104,13 @@ npm start        # → http://localhost:4799
 
 Xong. Các phiên chat của bạn hiện ra tự động.
 
-> **Tùy chọn — icon bấm-là-chạy (Linux):** chạy `bash scripts/install-launcher.sh` để thêm
-> app **Claude Tree** vào menu ứng dụng. Bấm một cái là tự khởi động server và mở app trong
-> cửa sổ riêng (như một phần mềm desktop thật).
+> **Tùy chọn — icon bấm-là-chạy** (tự khởi động server + mở app trong cửa sổ riêng):
+> - **Linux:** `bash scripts/install-launcher.sh` → thêm icon "Claude Tree" vào menu ứng dụng
+> - **macOS:** double-click `scripts/claude-tree-app.command`
+> - **Windows:** double-click `scripts\claude-tree-app.cmd`, hoặc chạy
+>   `powershell -ExecutionPolicy Bypass -File scripts\install-launcher.ps1` để tạo shortcut Desktop + Start Menu
+>
+> *Bản Linux đã test; bản macOS/Windows đã viết nhưng cần cộng đồng test thêm.*
 
 ## Làm được gì
 
