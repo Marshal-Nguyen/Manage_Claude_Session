@@ -333,11 +333,14 @@ export default function App() {
     return () => clearTimeout(id);
   }, [query, proj]);
 
-  // GSAP: sidebar trượt vào lần đầu
+  // GSAP: sidebar fade vào lần đầu.
+  // CHỈ animate opacity — KHÔNG dịch ngang (x). Stagger dài trên 70+ item dễ bị
+  // re-render ngắt giữa chừng, để sót transform translateX -> lệch cột chấm.
+  // Opacity không ảnh hưởng layout nên an toàn tuyệt đối.
   useGSAP(
     () => {
       if (!forest.length) return;
-      gsap.from('.root-item', { opacity: 0, x: -14, duration: 0.4, ease: 'power3.out', stagger: 0.012 });
+      gsap.from('.root-item', { opacity: 0, duration: 0.35, ease: 'power2.out', stagger: 0.01, clearProps: 'opacity' });
     },
     { scope: appRef, dependencies: [forest.length > 0] },
   );
