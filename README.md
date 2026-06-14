@@ -81,6 +81,8 @@ machine. Chat/Fork spawn your own `claude` CLI and use your own API quota.
 | macOS | 🟡 Implemented (Terminal.app) — testers welcome |
 | Windows | 🟡 Implemented (Windows Terminal / cmd) — testers welcome |
 
+- **`claude` CLI not found at startup** → *not an error.* Viewing, search and export work fine;
+  only Chat & Fork need the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code).
 - **"Cannot reach backend"** → run `npm start`, then retry.
 - **Port in use** → `PORT=5000 npm start`.
 - **Chat/Fork fails** → check `claude --version` works in your terminal.
@@ -169,6 +171,8 @@ Chat/Fork dùng chính `claude` CLI và quota API của bạn.
 | macOS | 🟡 Đã viết (Terminal.app) — cần người test thêm |
 | Windows | 🟡 Đã viết (Windows Terminal / cmd) — cần người test thêm |
 
+- **Khởi động báo "claude CLI not found"** → *KHÔNG phải lỗi.* Xem cây / tìm kiếm / export vẫn
+  chạy; chỉ Chat & Fork cần [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code).
 - **"Không kết nối được backend"** → chạy `npm start` rồi thử lại.
 - **Cổng đang bị chiếm** → `PORT=5000 npm start`.
 - **Chat/Fork lỗi** → kiểm tra `claude --version` chạy được trong terminal.

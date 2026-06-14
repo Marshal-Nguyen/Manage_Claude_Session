@@ -104,11 +104,20 @@ function runClaude(res, { resumeId, prompt, cwd }) {
   res.flushHeaders?.();
   const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--include-partial-messages', '--verbose'];
+  // Prompt đi qua STDIN (không phải arg) -> không lo escape ký tự đặc biệt khi
+  // qua shell trên Windows, và không đụng giới hạn độ dài dòng lệnh.
+  const args = ['-p', '--output-format', 'stream-json', '--include-partial-messages', '--verbose'];
   if (resumeId) args.push('--resume', resumeId);
   send('start', { sessionId: resumeId ?? null });
 
-  const child = spawn(CLAUDE_BIN, args, { cwd: cwd || homedir(), stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(CLAUDE_BIN, args, {
+    cwd: cwd || homedir(),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: process.platform === 'win32', // Windows cần shell để chạy claude.cmd shim
+  });
+  child.stdin.on('error', () => {}); // tránh EPIPE nếu claude thoát sớm
+  child.stdin.write(prompt);
+  child.stdin.end();
   let buf = '';
   let session = resumeId ?? null;
   let err = '';
@@ -424,12 +433,15 @@ const PORT = process.env.PORT || 4799;
 // bind localhost-only: API đọc được toàn bộ lịch sử chat, không mở ra LAN
 const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`claude-tree chạy tại http://localhost:${PORT}`);
-  const probe = spawnSync(CLAUDE_BIN, ['--version'], { encoding: 'utf8' });
-  if (probe.error) {
-    console.warn('⚠ Không tìm thấy `claude` CLI trong PATH — xem/fork cây vẫn chạy, nhưng Chat/Fork sẽ lỗi.');
-    console.warn('  Cài đặt: https://docs.anthropic.com/en/docs/claude-code');
+  const probe = spawnSync(CLAUDE_BIN, ['--version'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  if (probe.error || probe.status !== 0) {
+    console.log('ℹ  `claude` CLI not found — the app runs fine (view / search / export work).');
+    console.log('   Only Chat & Fork need it: https://docs.anthropic.com/en/docs/claude-code');
   } else {
-    console.log(`claude CLI: ${probe.stdout.trim()}`);
+    console.log(`   claude CLI: ${probe.stdout.trim()}`);
   }
 });
 server.on('error', (e) => {
