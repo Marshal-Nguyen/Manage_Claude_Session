@@ -9,8 +9,14 @@
   <sub>📖 <a href="#-tiếng-việt">Đọc bằng Tiếng Việt ↓</a></sub>
 </p>
 
-Turn your Claude Code chat history into an interactive tree — click any session, fork from
-any point, and keep chatting in a real terminal. The original session is never touched.
+> 🧩 **This is for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — the AI coding agent that runs in your terminal.**
+> It is **not** the Claude desktop chat app. Different tools: Claude Code edits your codebase; Claude Tree
+> organizes and branches its conversation history — something neither the CLI nor the chat app gives you.
+
+**Why?** A Claude Code session builds up valuable context. When you want to try several directions, cramming
+them into one session dilutes that context — and starting fresh throws it away. Claude Tree turns every session
+into a visual tree so you can **fork** any conversation (from the end, *or any message in the middle*) into a new
+branch and keep working in a real terminal — while the original stays perfectly intact.
 
 ![Claude Tree](docs/screenshot.png)
 
@@ -97,11 +103,14 @@ Works down to phone-width screens (sidebar becomes a drawer ☰).
 
 **Quản lý và phân nhánh các phiên chat Claude Code như nhánh Git.**
 
-Bạn từng chat với Claude Code đến một đoạn muốn **thử nhiều hướng cùng lúc** — nhưng hỏi dồn
-vào một phiên thì context loãng dần, mà mở phiên mới thì mất sạch ngữ cảnh đã xây? **Claude
-Tree** biến toàn bộ lịch sử chat của bạn thành một **cây trực quan**: chọn phiên bất kỳ →
-**fork** ra nhánh mới để đi tiếp → một **cửa sổ terminal mở ra** để bạn chat tiếp với đầy đủ
-sức mạnh CLI. **Phiên gốc luôn nguyên vẹn**, mọi thứ chạy hoàn toàn trên máy bạn.
+> 🧩 **Đây là công cụ cho [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — agent lập trình chạy trong terminal.**
+> **KHÔNG phải** app chat Claude Desktop. Hai thứ khác nhau: Claude Code sửa code dự án của bạn;
+> Claude Tree quản lý & phân nhánh lịch sử hội thoại của nó — thứ mà cả CLI lẫn app chat đều không có.
+
+**Để làm gì?** Một phiên Claude Code tích lũy ngữ cảnh quý giá. Khi muốn thử nhiều hướng, hỏi dồn vào
+một phiên thì context loãng dần, mà mở phiên mới thì mất sạch. Claude Tree biến mọi phiên thành một
+**cây trực quan**: **fork** bất kỳ hội thoại nào (từ cuối, *hoặc từ một tin nhắn bất kỳ ở giữa*) ra
+nhánh mới rồi chat tiếp trong **terminal thật** — còn **phiên gốc luôn nguyên vẹn**. Mọi thứ chạy hoàn toàn trên máy bạn.
 
 ## Cài đặt (4 lệnh)
 
