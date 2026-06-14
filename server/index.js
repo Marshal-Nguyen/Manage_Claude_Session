@@ -322,8 +322,10 @@ app.get('/api/export/:id', (req, res) => {
       continue;
     }
     if ((e.type === 'user' || e.type === 'assistant') && e.message && e.isSidechain !== true) {
-      const t = fullText(e.message).trim();
-      if (t) items.push({ role: e.type, ts: e.timestamp || null, text: t });
+      // Khớp với panel hội thoại: chỉ text đọc-được, bỏ tool plumbing + wrapper lệnh
+      const t = realText(e.message);
+      if (t && !t.startsWith('<local-command') && !t.startsWith('<command-'))
+        items.push({ role: e.type, ts: e.timestamp || null, text: t });
     }
   }
   if (wantJson) {
