@@ -35,8 +35,10 @@ if (major < 18) {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Windows: npm cài claude dưới dạng shim .cmd -> spawn cần đúng tên
-const CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
+// Luôn dùng 'claude' (không đuôi). Trên Windows: shell:true cho spawn + terminal là
+// cmd -> tự phân giải claude.cmd / claude.exe qua PATHEXT. KHÔNG hard-code .cmd vì
+// bản cài native là claude.exe (không có .cmd).
+const CLAUDE_BIN = 'claude';
 const DIR = DEFAULT_PROJECT_DIR;
 // project bắt buộc + chống path traversal (tên project không được chứa / hay ..)
 const projDir = (p) => {
