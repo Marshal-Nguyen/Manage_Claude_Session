@@ -1,8 +1,13 @@
-# 🌳 Claude Tree
+<p align="center">
+  <img src="docs/icon-256.png" width="116" alt="Claude Tree icon" />
+</p>
 
-**Fork your Claude Code sessions like git branches.**
+<h1 align="center">Claude Tree</h1>
 
-📖 Đọc bằng [**Tiếng Việt** ↓](#-tiếng-việt)
+<p align="center">
+  <b>Fork your Claude Code sessions like git branches.</b><br/>
+  <sub>📖 <a href="#-tiếng-việt">Đọc bằng Tiếng Việt ↓</a></sub>
+</p>
 
 Turn your Claude Code chat history into an interactive tree — click any session, fork from
 any point, and keep chatting in a real terminal. The original session is never touched.
@@ -29,8 +34,11 @@ That's it. Your sessions appear automatically.
 > - **Windows:** run `powershell -ExecutionPolicy Bypass -File scripts\install-launcher.ps1`
 >   → Desktop + Start Menu shortcuts with icon. Or double-click `scripts\claude-tree-app.cmd`.
 >
-> All three use the bundled app icon. *Linux launcher is tested; macOS/Windows are written but
-> community-testing welcome.*
+> All three install a real desktop app with its own icon — like any other app in your dock/menu:
+>
+> <img src="docs/icon-256.png" width="68" alt="Claude Tree app icon" />
+>
+> *Linux launcher is tested; macOS/Windows are written but community-testing welcome.*
 
 ## What you can do
 
@@ -113,7 +121,11 @@ Xong. Các phiên chat của bạn hiện ra tự động.
 > - **Windows:** chạy `powershell -ExecutionPolicy Bypass -File scripts\install-launcher.ps1`
 >   → shortcut Desktop + Start Menu có icon. Hoặc double-click `scripts\claude-tree-app.cmd`.
 >
-> Cả 3 dùng icon app kèm sẵn. *Bản Linux đã test; macOS/Windows đã viết nhưng cần cộng đồng test thêm.*
+> Cả 3 cài thành app desktop thật, có icon riêng — như mọi app khác trong dock/menu:
+>
+> <img src="docs/icon-256.png" width="68" alt="Claude Tree app icon" />
+>
+> *Bản Linux đã test; macOS/Windows đã viết nhưng cần cộng đồng test thêm.*
 
 ## Làm được gì
 
