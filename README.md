@@ -22,6 +22,10 @@ npm start        # → http://localhost:4799
 
 That's it. Your sessions appear automatically.
 
+> **Optional — desktop launcher (Linux):** run `bash scripts/install-launcher.sh` to add a
+> clickable **Claude Tree** app to your menu. One click starts the server and opens the app
+> in its own window.
+
 ## What you can do
 
 - ⑂ **Fork → Terminal** — click fork, a terminal opens on the new branch, chat with the full CLI
@@ -95,6 +99,10 @@ npm start        # → http://localhost:4799
 ```
 
 Xong. Các phiên chat của bạn hiện ra tự động.
+
+> **Tùy chọn — icon bấm-là-chạy (Linux):** chạy `bash scripts/install-launcher.sh` để thêm
+> app **Claude Tree** vào menu ứng dụng. Bấm một cái là tự khởi động server và mở app trong
+> cửa sổ riêng (như một phần mềm desktop thật).
 
 ## Làm được gì
 
